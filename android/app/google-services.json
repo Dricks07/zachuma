@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "701115490195",
+    "project_id": "zachuma-6463f",
+    "storage_bucket": "zachuma-6463f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701115490195:android:7f546acae4035961495266",
+        "android_client_info": {
+          "package_name": "com.example.za_chuma"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "701115490195-kdn16lb44je6hh1mqvldkajjsniqognh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdQFurn-vkJ0ygNX2WnkSMIOhQxYZiF4k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "701115490195-kdn16lb44je6hh1mqvldkajjsniqognh.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "701115490195-o1iitse5af3bmit52d25gth711gfkck2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.zaChuma"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

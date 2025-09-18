@@ -1,0 +1,765 @@
+Why is the following application just installing infinitely during debug. Like it wont launch no matter how long I wait.
+
+//constants.dart
+import 'package:flutter/material.dart';
+
+/// ==================
+/// COLOR CONSTANTS
+/// ==================
+class AppColors {
+  static const Color primary = Color(0xFF5CAFD6);
+  static const Color secondary = Color(0xFFFF8800);
+  static const Color accent = Color(0xFF3A8FB7);
+  static const Color success = Color(0xFF48C78E);
+  static const Color error = Color(0xFFEF5350);
+  static const Color warning = Color(0xFFFFC107);
+  static const Color background = Color(0xFFF9FAFB);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF1E293B);
+  static const Color textSecondary = Color(0xFF6D7684);
+}
+
+/// ==================
+/// TEXT STYLE CONSTANTS
+/// ==================
+class AppTextStyles {
+  static const TextStyle heading = TextStyle(
+    fontFamily: 'Poppins',
+    fontWeight: FontWeight.bold,
+    fontSize: 30,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle subHeading = TextStyle(
+    fontFamily: 'Poppins',
+    fontWeight: FontWeight.w600,
+    fontSize: 24,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle midFont = TextStyle(
+    fontFamily: 'Poppins',
+    fontWeight: FontWeight.w600,
+    fontSize: 18,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle regular = TextStyle(
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.normal,
+    fontSize: 16,
+    color: AppColors.textPrimary,
+  );
+
+  static const TextStyle notificationText = TextStyle(
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w500,
+    fontSize: 13,
+    letterSpacing: -0.08,
+    height: 18 / 13, // matches your line height ratio
+    color: AppColors.textSecondary,
+  );
+}
+
+
+
+//main.dart
+import 'package:flutter/material.dart';
+import 'package:zachuma/constants.dart';
+import 'screens/splash_screen.dart';
+import 'screens/welcome_screen.dart';
+import 'screens/sign_in_screen.dart';
+import 'screens/sign_up_screen.dart';
+
+void main() {
+  runApp(const ZaChumaApp());
+}
+
+class ZaChumaApp extends StatelessWidget {
+  const ZaChumaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ZaChuma',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.background,
+        textTheme: const TextTheme(
+          headlineLarge: AppTextStyles.heading,
+          titleLarge: AppTextStyles.subHeading,
+          bodyLarge: AppTextStyles.regular,
+          bodyMedium: AppTextStyles.midFont,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            textStyle: AppTextStyles.midFont.copyWith(color: Colors.white),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.textSecondary, width: 2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+          labelStyle: AppTextStyles.midFont.copyWith(color: AppColors.textSecondary),
+        ),
+      ),
+      initialRoute: '/splash',
+      routes: {
+        '/splash': (context) => const SplashScreen(),
+        '/welcome': (context) => const WelcomeScreen(),
+        '/signin': (context) => const SignInScreen(),
+        '/signup': (context) => const SignUpScreen(),
+      },
+    );
+  }
+}
+
+
+//splash_screen.dart
+import 'package:flutter/material.dart';
+import 'package:zachuma/constants.dart';
+import 'package:zachuma/screens//welcome_screen.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Animation setup
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    _controller.forward();
+
+    // Navigate to Onboarding after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: AppColors.primary,
+      body: SafeArea(
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // App Name
+                Text(
+                  'ZaChuma',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.heading.copyWith(
+                    color: AppColors.secondary,
+                    fontSize: size.width * 0.15,
+                    shadows: [
+                      Shadow(
+                        offset: const Offset(0, 4),
+                        blurRadius: 4,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: size.height * 0.02),
+
+                // Tagline
+                Text(
+                  'Learn. Invest. Grow',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.subHeading.copyWith(
+                    color: AppColors.surface,
+                    fontStyle: FontStyle.italic,
+                    fontSize: size.width * 0.05,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+//welcome_screen.dart
+import 'package:flutter/material.dart';
+import 'package:zachuma/constants.dart';
+import 'package:zachuma/screens/sign_in_screen.dart';
+import 'package:zachuma/screens/sign_up_screen.dart';
+
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(height: size.height * 0.03),
+
+            // Header
+            Text(
+              'Welcome',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.heading.copyWith(
+                color: AppColors.primary,
+                fontSize: size.width * 0.08,
+              ),
+            ),
+
+            SizedBox(height: size.height * 0.02),
+
+            // App Description
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+              child: Text(
+                'ZaChuma is a financial literacy app that helps you understand and manage your money. Make smarter financial decisions, improve your financial health, and build a better future.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.regular.copyWith(
+                  fontSize: size.width * 0.045,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+
+            SizedBox(height: size.height * 0.04),
+
+            // Center image
+            Container(
+              width: size.width * 0.7,
+              height: size.width * 0.7,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: NetworkImage("https://placehold.co/300x300"),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+
+            Spacer(),
+
+            // Buttons Row
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Sign In
+                  ElevatedButton(
+                    onPressed: () {
+                      //Navigate ti Sign Up Screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignInScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      fixedSize: Size(size.width * 0.4, size.height * 0.065),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Sign In',
+                      style: AppTextStyles.regular.copyWith(
+                        color: AppColors.surface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: size.width * 0.045,
+                      ),
+                    ),
+                  ),
+
+                  // Sign Up
+                  ElevatedButton(
+                    onPressed: () {
+                      //Navigate to Sign In Screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      fixedSize: Size(size.width * 0.4, size.height * 0.065),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Sign Up',
+                      style: AppTextStyles.regular.copyWith(
+                        color: AppColors.surface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: size.width * 0.045,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: size.height * 0.05),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+//sign_in_screen.dart
+import 'package:flutter/material.dart';
+import 'package:zachuma/constants.dart';
+import 'package:zachuma/screens/sign_up_screen.dart';
+
+class SignInScreen extends StatelessWidget {
+  const SignInScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: size.height * 0.05),
+
+                // Header
+                Text(
+                  'Sign In',
+                  style: AppTextStyles.heading.copyWith(
+                    color: AppColors.primary,
+                    fontSize: size.width * 0.08,
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.05),
+
+                // Email Field
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.03),
+
+                // Password Field
+                TextField(
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.015),
+
+                // Forgot Password
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // Navigate to forgot password
+                    },
+                    child: Text(
+                      'Forgot Password?',
+                      style: AppTextStyles.midFont.copyWith(
+                        color: AppColors.primary,
+                        fontSize: size.width * 0.045,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.03),
+
+                // Sign In Button
+                SizedBox(
+                  width: double.infinity,
+                  height: size.height * 0.065,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Sign in action
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Sign In',
+                      style: AppTextStyles.regular.copyWith(
+                        color: AppColors.surface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: size.width * 0.045,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.03),
+
+                // Or sign in with
+                Text(
+                  'Or sign in with',
+                  style: AppTextStyles.midFont.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: size.width * 0.045,
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.02),
+
+                // Social Buttons Placeholder
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Container(
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Icon(Icons.facebook, color: AppColors.primary),
+                    ),
+                    Container(
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Icon(Icons.g_mobiledata, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: size.height * 0.04),
+
+                // Sign Up Prompt
+                RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Don’t have an account?',
+                        style: AppTextStyles.regular.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: size.width * 0.04,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' Sign up here!',
+                        style: AppTextStyles.regular.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                          fontSize: size.width * 0.04,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.05),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+//sign_up_screen.dart
+import 'package:flutter/material.dart';
+import 'package:zachuma/constants.dart';
+import 'package:zachuma/screens/sign_in_screen.dart';
+
+class SignUpScreen extends StatelessWidget {
+  const SignUpScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: size.height * 0.05),
+
+                // Header
+                Text(
+                  'Sign Up',
+                  style: AppTextStyles.heading.copyWith(
+                    color: AppColors.primary,
+                    fontSize: size.width * 0.08,
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.05),
+
+                // Full Name Field
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.025),
+
+                // Email Field
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.025),
+
+                // Password Field
+                TextField(
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.025),
+
+                // Confirm Password Field
+                TextField(
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    labelStyle: AppTextStyles.midFont.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.03),
+
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  height: size.height * 0.065,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Submit action
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Submit',
+                      style: AppTextStyles.regular.copyWith(
+                        color: AppColors.surface,
+                        fontWeight: FontWeight.w700,
+                        fontSize: size.width * 0.045,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.03),
+
+                // Or continue with
+                Text(
+                  'Or continue with',
+                  style: AppTextStyles.midFont.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: size.width * 0.045,
+                  ),
+                ),
+
+                SizedBox(height: size.height * 0.02),
+
+                // Social Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Container(
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Icon(Icons.facebook, color: AppColors.primary),
+                    ),
+                    Container(
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: Icon(Icons.g_mobiledata, color: AppColors.primary),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: size.height * 0.05),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
