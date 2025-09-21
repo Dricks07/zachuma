@@ -370,13 +370,13 @@ class _ReviewerTopicReviewState extends State<ReviewerTopicReview> {
             'reviewerId': currentUser?.uid,
             'reviewerName': currentUser?.displayName ?? currentUser?.email,
             'message': feedback,
-            'createdAt': Timestamp.now(), // Changed from FieldValue.serverTimestamp()
+            'createdAt': Timestamp.now(),
             'status': status,
           }
         ]),
       });
 
-      // Send notification to the author
+      // Send notification to the author (content creator)
       if (widget.topicData['authorId'] != null) {
         await _firestore.collection('notifications').add({
           'userId': widget.topicData['authorId'],
@@ -384,9 +384,36 @@ class _ReviewerTopicReviewState extends State<ReviewerTopicReview> {
           'message': 'Your topic "${widget.topicData['title']}" has been $status. ${feedback.isNotEmpty ? "Feedback: ${feedback.substring(0, feedback.length > 100 ? 100 : feedback.length)}${feedback.length > 100 ? '...' : ''}" : ""}',
           'type': 'feedback',
           'read': false,
-          'createdAt': Timestamp.now(), // Changed from FieldValue.serverTimestamp()
+          'createdAt': Timestamp.now(),
           'topicId': widget.topicId,
         });
+      }
+
+      // If published, send notification to all learners
+      if (status == 'published') {
+        try {
+          // Get all learners (users with role 'learner')
+          final learnersQuery = await _firestore
+              .collection('users')
+              .where('role', isEqualTo: 'learner')
+              .get();
+
+          // Send notification to each learner
+          for (final learner in learnersQuery.docs) {
+            await _firestore.collection('notifications').add({
+              'userId': learner.id,
+              'title': 'New Topic Available',
+              'message': 'A new topic "${widget.topicData['title']}" in ${widget.topicData['category']} has been published and is now available to read.',
+              'type': 'new_content',
+              'read': false,
+              'createdAt': Timestamp.now(),
+              'topicId': widget.topicId,
+            });
+          }
+        } catch (e) {
+          // Don't fail the whole operation if we can't notify learners
+          print('Error notifying learners: $e');
+        }
       }
 
       // Show success message

@@ -167,7 +167,7 @@ class _UserShellState extends State<UserShell> {
           '/user/dashboard',
           '/user/topics',
           '/user/discover',
-          '/user/alerts',
+          '/user/notifications',
           '/user/settings'
         ];
         if (idx < routes.length && idx != widget.currentIndex) {
@@ -195,10 +195,10 @@ class _UserDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
-      {'icon': Icons.home, 'label': 'Dashboard', 'route': '/user/dashboard'},
+      {'icon': Icons.home, 'label': 'Home', 'route': '/user/dashboard'},
       {'icon': Icons.book, 'label': 'Topics', 'route': '/user/topics'},
       {'icon': Icons.explore, 'label': 'Discover', 'route': '/user/discover'},
-      {'icon': Icons.notifications, 'label': 'Alerts', 'route': '/user/alerts'},
+      {'icon': Icons.notifications, 'label': 'Alerts', 'route': '/user/notifications'},
       {'icon': Icons.settings, 'label': 'Settings', 'route': '/user/settings'},
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/user/help'},
       {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'isLogout': true},

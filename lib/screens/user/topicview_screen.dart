@@ -19,6 +19,7 @@ class _TopicOverviewState extends State<TopicOverview> {
   @override
   void initState() {
     super.initState();
+    print('🔍 TopicOverview initiated with topicId: "${widget.topicId}"');
     _loadTopicData();
   }
 
@@ -26,20 +27,41 @@ class _TopicOverviewState extends State<TopicOverview> {
     try {
       await _syncService.syncData();
       final topics = await _syncService.getTopics();
-      final topic = topics.firstWhere(
-            (t) => t['id'] == widget.topicId,
-        orElse: () => {},
-      );
+
+      print('📚 Looking for topic with ID: "${widget.topicId}"');
+      print('📚 Available topics:');
+      for (var t in topics) {
+        print('   - ID: "${t['id']}", Title: "${t['title']}"');
+      }
+
+      Map<String, dynamic> topic = {};
+
+      // Try to find by exact match first
+      if (widget.topicId.isNotEmpty) {
+        topic = topics.firstWhere(
+              (t) => t['id'] == widget.topicId,
+          orElse: () => {},
+        );
+      }
+
+      // If no exact match and topicId is empty, take the first available topic for testing
+      if (topic.isEmpty && topics.isNotEmpty) {
+        print('⚠️ No exact match found, using first available topic for testing');
+        topic = topics.first;
+      }
 
       if (topic.isNotEmpty) {
+        print('✅ Found topic: "${topic['title']}" (ID: ${topic['id']})');
         setState(() {
           _topicData = topic;
           _loading = false;
         });
       } else {
+        print('❌ No topic found');
         setState(() => _loading = false);
       }
     } catch (e) {
+      print('❌ Error loading topic data: $e');
       setState(() => _loading = false);
     }
   }
@@ -56,7 +78,45 @@ class _TopicOverviewState extends State<TopicOverview> {
     if (_topicData == null) {
       return Scaffold(
         backgroundColor: Colors.white,
-        body: Center(child: Text('Topic not found')),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            'Course Overview',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 20,
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Topic not found',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontFamily: 'Manrope',
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadTopicData,
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -120,7 +180,7 @@ class _TopicOverviewState extends State<TopicOverview> {
               ),
               const SizedBox(height: 16),
 
-              // Duration
+              // Duration and Level
               Row(
                 children: [
                   Icon(Icons.access_time, size: 20, color: Colors.black54),
@@ -132,6 +192,18 @@ class _TopicOverviewState extends State<TopicOverview> {
                       fontSize: 16,
                       fontFamily: 'Manrope',
                       fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(Icons.signal_cellular_alt, size: 20, color: Colors.black54),
+                  const SizedBox(width: 8),
+                  Text(
+                    _topicData!['level']?.toString().toUpperCase() ?? 'BEGINNER',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -177,6 +249,7 @@ class _TopicOverviewState extends State<TopicOverview> {
                         fontSize: 16,
                         fontFamily: 'Manrope',
                         fontWeight: FontWeight.w400,
+                        height: 1.5,
                       ),
                     ),
                   ],
@@ -190,11 +263,19 @@ class _TopicOverviewState extends State<TopicOverview> {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
+                    // Use the actual topic ID from the loaded data, not widget.topicId
+                    final actualTopicId = _topicData!['id'];
+                    final topicTitle = _topicData!['title'];
+
+                    print('🚀 Navigating to learning screen with:');
+                    print('   topicId: "$actualTopicId"');
+                    print('   topicTitle: "$topicTitle"');
+
                     Navigator.pushNamed(context, '/user/learning', arguments: {
-                      'topicId': widget.topicId,
-                      'topicTitle': _topicData!['title'],
+                      'topicId': actualTopicId,  // Use the actual ID from loaded data
+                      'topicTitle': topicTitle,
                     });
-                    },
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5CAFD6),
                     shape: RoundedRectangleBorder(

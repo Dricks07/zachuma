@@ -145,7 +145,7 @@ class _CreatorShellState extends State<CreatorShell> {
 
   BottomNavigationBar _buildBottomNav(BuildContext context) {
     final navItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/creator/dashboard'},
+      {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/creator/dashboard'},
       {'icon': Icons.article_outlined, 'label': 'My Topics', 'route': '/creator/topics'},
       {'icon': Icons.add_box, 'label': 'Add', 'route': '/creator/addContent'},
       {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/creator/alerts'},
@@ -180,7 +180,7 @@ class _CreatorDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/creator/dashboard', 'index': 0},
+      {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/creator/dashboard', 'index': 0},
       {'icon': Icons.article_outlined, 'label': 'My Topics', 'route': '/creator/topics', 'index': 1},
       {'icon': Icons.add_box, 'label': 'Add Topic', 'route': '/creator/addContent', 'index': 2},
       {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/creator/alerts', 'index': 3},

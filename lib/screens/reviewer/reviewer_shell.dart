@@ -145,7 +145,7 @@ class _ReviewerShellState extends State<ReviewerShell> {
 
   BottomNavigationBar _buildBottomNav(BuildContext context) {
     final navItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/reviewer/dashboard'},
+      {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/reviewer/dashboard'},
       {'icon': Icons.rate_review, 'label': 'Review', 'route': '/reviewer/review'},
       {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/reviewer/alerts'},
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/reviewer/help'},
@@ -180,7 +180,7 @@ class _ReviewerDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/reviewer/dashboard', 'index': 0},
+      {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/reviewer/dashboard', 'index': 0},
       {'icon': Icons.rate_review, 'label': 'Review', 'route': '/reviewer/review', 'index': 1},
       {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/reviewer/alerts', 'index': 2},
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/reviewer/help', 'index': 3},
