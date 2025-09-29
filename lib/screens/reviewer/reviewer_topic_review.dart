@@ -114,30 +114,24 @@ class _ReviewerTopicReviewState extends State<ReviewerTopicReview> {
   }
 
   Widget _buildContentSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Content",
-              style: AppTextStyles.subHeading,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.topicData['description'] ?? 'No description',
-              style: AppTextStyles.regular,
-            ),
-            const SizedBox(height: 16),
-            Divider(color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            // Render Markdown content
-            _buildMarkdownContent(widget.topicData['content']),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Content",
+          style: AppTextStyles.subHeading,
         ),
-      ),
+        const SizedBox(height: 12),
+        Text(
+          widget.topicData['description'] ?? 'No description',
+          style: AppTextStyles.regular,
+        ),
+        const SizedBox(height: 16),
+        Divider(color: Colors.grey[300]),
+        const SizedBox(height: 16),
+        // Render Markdown content without card background
+        _buildMarkdownContent(widget.topicData['content']),
+      ],
     );
   }
 
@@ -145,62 +139,57 @@ class _ReviewerTopicReviewState extends State<ReviewerTopicReview> {
     if (content == null || content.isEmpty) {
       return Text(
         'No content available',
-        style: AppTextStyles.regular,
+        style: AppTextStyles.regular.copyWith(
+          color: AppColors.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
       );
     }
 
     return MarkdownBody(
       data: content,
       styleSheet: MarkdownStyleSheet(
-        p: TextStyle(
-          fontSize: 16,
-          fontFamily: 'Manrope',
-          height: 1.5,
-          color: AppColors.textPrimary,
-        ),
-        h1: TextStyle(
-          fontSize: 24,
-          fontFamily: 'Poppins',
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        h2: TextStyle(
-          fontSize: 20,
-          fontFamily: 'Poppins',
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        h3: TextStyle(
-          fontSize: 18,
-          fontFamily: 'Poppins',
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        code: TextStyle(
-          backgroundColor: Colors.grey[200],
-          fontFamily: 'monospace',
-        ),
-        codeblockDecoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
+        p: AppTextStyles.regular.copyWith(height: 1.6),
+        h1: AppTextStyles.heading,
+        h2: AppTextStyles.subHeading,
+        h3: AppTextStyles.midFont.copyWith(fontSize: 20),
+        h4: AppTextStyles.midFont,
+        strong: const TextStyle(fontWeight: FontWeight.bold),
+        em: const TextStyle(fontStyle: FontStyle.italic),
         blockquote: TextStyle(
-          fontSize: 16,
           fontStyle: FontStyle.italic,
-          color: Colors.grey[700],
+          color: AppColors.textSecondary,
         ),
         blockquoteDecoration: BoxDecoration(
           color: Colors.grey[100],
-          //borderLeft: BorderSide(
-            //color: AppColors.primary,
-            //width: 4,
-          //),
+          border: Border(
+            left: BorderSide(
+              color: AppColors.primary,
+              width: 4,
+            ),
+          ),
+          borderRadius: BorderRadius.circular(4),
         ),
-        listBullet: TextStyle(
-          fontSize: 16,
+        code: TextStyle(
+          backgroundColor: Colors.grey[100],
           color: AppColors.textPrimary,
+          fontFamily: 'monospace',
         ),
+        codeblockPadding: const EdgeInsets.all(16),
+        codeblockDecoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+        ),
+        listIndent: 24.0,
+        listBullet: TextStyle(color: AppColors.primary),
+        tableHead: const TextStyle(fontWeight: FontWeight.bold),
+        tableBody: AppTextStyles.regular,
+        tableBorder: TableBorder.all(color: Colors.grey[300]!, width: 1),
+        tableHeadAlign: TextAlign.center,
+        tableColumnWidth: const FlexColumnWidth(),
       ),
+      selectable: true,
     );
   }
 
@@ -389,13 +378,13 @@ class _ReviewerTopicReviewState extends State<ReviewerTopicReview> {
         });
       }
 
-      // If published, send notification to all learners
+      // If published, send notification to all learners (users with role 'user')
       if (status == 'published') {
         try {
-          // Get all learners (users with role 'learner')
+          // Get all learners (users with role 'user')
           final learnersQuery = await _firestore
               .collection('users')
-              .where('role', isEqualTo: 'learner')
+              .where('role', isEqualTo: 'user')
               .get();
 
           // Send notification to each learner

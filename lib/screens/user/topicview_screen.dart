@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:za_chuma/constants.dart';
 import 'package:za_chuma/services/sync_service.dart';
+import 'dart:math';
 
 class TopicOverview extends StatefulWidget {
   final String topicId;
@@ -16,11 +17,28 @@ class _TopicOverviewState extends State<TopicOverview> {
   Map<String, dynamic>? _topicData;
   bool _loading = true;
 
+  // List of available background images (same as DashboardScreen)
+  final List<String> _backgroundImages = [
+    'assets/images/bg_image1.png',
+    'assets/images/bg_image2.png',
+    'assets/images/bg_image3.png',
+    'assets/images/bg_image4.png',
+    'assets/images/bg_image5.png',
+    'assets/images/bg_image6.png',
+    'assets/images/bg_image7.png',
+  ];
+
   @override
   void initState() {
     super.initState();
     print('🔍 TopicOverview initiated with topicId: "${widget.topicId}"');
     _loadTopicData();
+  }
+
+  // Helper method to assign a consistent image to a topic based on its ID
+  String _getTopicImage(String topicId) {
+    final random = Random(topicId.hashCode);
+    return _backgroundImages[random.nextInt(_backgroundImages.length)];
   }
 
   Future<void> _loadTopicData() async {
@@ -51,9 +69,15 @@ class _TopicOverviewState extends State<TopicOverview> {
       }
 
       if (topic.isNotEmpty) {
+        // Assign consistent image to the topic
+        final topicWithImage = {
+          ...topic,
+          'assignedImage': _getTopicImage(topic['id']),
+        };
+
         print('✅ Found topic: "${topic['title']}" (ID: ${topic['id']})');
         setState(() {
-          _topicData = topic;
+          _topicData = topicWithImage;
           _loading = false;
         });
       } else {
@@ -70,27 +94,27 @@ class _TopicOverviewState extends State<TopicOverview> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_topicData == null) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
+          backgroundColor: AppColors.background,
+          elevation: 3,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: Colors.black),
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'Course Overview',
+            'Topic Overview',
             style: TextStyle(
               color: Colors.black,
               fontSize: 20,
-              fontFamily: 'Poppins',
+              fontFamily: AppTextStyles.heading.fontFamily,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -152,16 +176,14 @@ class _TopicOverviewState extends State<TopicOverview> {
               ),
               const SizedBox(height: 16),
 
-              // Course image
+              // Course image - Using offline image
               Container(
                 height: 240,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   image: DecorationImage(
-                    image: NetworkImage(_topicData!['imageUrl']?.isNotEmpty == true
-                        ? _topicData!['imageUrl']
-                        : "https://placehold.co/402x240"),
+                    image: AssetImage(_topicData!['assignedImage'] ?? _backgroundImages.first),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -214,12 +236,8 @@ class _TopicOverviewState extends State<TopicOverview> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBE0E5),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(10),
-                    topRight: Radius.circular(10),
-                    bottomLeft: Radius.circular(10),
-                  ),
+                  color: AppColors.accent.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.25),
@@ -277,7 +295,7 @@ class _TopicOverviewState extends State<TopicOverview> {
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5CAFD6),
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -286,7 +304,7 @@ class _TopicOverviewState extends State<TopicOverview> {
                     'Get Started',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 18,
                       fontFamily: 'Manrope',
                       fontWeight: FontWeight.w700,
                     ),

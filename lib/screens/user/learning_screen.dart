@@ -382,13 +382,7 @@ class _LearningScreenState extends State<LearningScreen> {
 
   Widget _buildMarkdownContent(String? content) {
     if (content == null || content.isEmpty) {
-      return Text(
-        'No content available for this section.',
-        style: AppTextStyles.regular.copyWith(
-          color: AppColors.textSecondary,
-          fontStyle: FontStyle.italic,
-        ),
-      );
+      return Container();
     }
 
     return MarkdownBody(

@@ -36,9 +36,9 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
       title: "My Alerts",
       currentIndex: 3,
       child: Padding(
-        padding: const EdgeInsets.all(16.0), // Added padding
+        padding: const EdgeInsets.all(5),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Changed to start
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("My Notifications", style: AppTextStyles.heading.copyWith(fontSize: 24)),
             const SizedBox(height: 16),
@@ -228,11 +228,22 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
         icon = Icons.feedback;
         color = AppColors.accent;
         onTap = () {
-          // Navigate to feedback screen
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreatorFeedback()),
-          );
+          // Navigate to feedback screen with the specific topicId
+          final topicId = alert['topicId'];
+          if (topicId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CreatorFeedback(topicId: topicId),
+              ),
+            );
+          } else {
+            // If no topicId, navigate to general feedback page
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreatorFeedback()),
+            );
+          }
         };
         break;
       case 'collaboration':

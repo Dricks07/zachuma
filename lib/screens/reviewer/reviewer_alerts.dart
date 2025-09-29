@@ -33,7 +33,7 @@ class _ReviewerAlertsState extends State<ReviewerAlerts> {
       title: "Reviewer Alerts",
       currentIndex: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

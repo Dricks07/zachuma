@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants.dart';
-import 'user_shell.dart'; // Import the UserShell
+import 'user_shell.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -14,6 +14,58 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = true;
+  List<DocumentSnapshot> _notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final querySnapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUser.uid)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      setState(() {
+        _notifications = querySnapshot.docs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading notifications: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _markAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'read': true,
+      });
+
+      // Reload notifications to reflect the change in the UI
+      await _loadNotifications(); // Make sure _loadNotifications calls setState
+
+    } catch (e) {
+      print('Error marking notification as read: $e');
+      // Optionally, show an error message to the user
+      if (mounted) { // Check if the widget is still in the tree
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to mark notification as read. Please try again.')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +73,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     return UserShell(
       title: 'Notifications',
-      currentIndex: 3, // Alerts is at index 3
+      currentIndex: 3,
       child: currentUser == null
           ? const Center(
         child: Text(
@@ -29,89 +81,87 @@ class _NotificationsPageState extends State<NotificationsPage> {
           style: TextStyle(fontSize: 16),
         ),
       )
-          : StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('notifications')
-            .where('userId', isEqualTo: currentUser.uid)
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.notifications_none, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No notifications yet",
-                    style: AppTextStyles.subHeading,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Notifications will appear here",
-                    style: AppTextStyles.regular.copyWith(color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final notifications = snapshot.data!.docs;
-
-          // Group notifications by date
-          final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          final yesterday = today.subtract(const Duration(days: 1));
-
-          final todayNotifications = notifications.where((n) {
-            final data = n.data() as Map<String, dynamic>;
-            final timestamp = data['createdAt'] as Timestamp?;
-            if (timestamp == null) return false;
-            final date = timestamp.toDate();
-            return date.isAfter(today);
-          }).toList();
-
-          final yesterdayNotifications = notifications.where((n) {
-            final data = n.data() as Map<String, dynamic>;
-            final timestamp = data['createdAt'] as Timestamp?;
-            if (timestamp == null) return false;
-            final date = timestamp.toDate();
-            return date.isAfter(yesterday) && date.isBefore(today);
-          }).toList();
-
-          final olderNotifications = notifications.where((n) {
-            final data = n.data() as Map<String, dynamic>;
-            final timestamp = data['createdAt'] as Timestamp?;
-            if (timestamp == null) return false;
-            final date = timestamp.toDate();
-            return date.isBefore(yesterday);
-          }).toList();
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (todayNotifications.isNotEmpty) ...[
-                _buildSectionHeader('Today'),
-                ...todayNotifications.map((doc) => _buildNotificationItem(doc)).toList(),
-              ],
-              if (yesterdayNotifications.isNotEmpty) ...[
-                _buildSectionHeader('Yesterday'),
-                ...yesterdayNotifications.map((doc) => _buildNotificationItem(doc)).toList(),
-              ],
-              if (olderNotifications.isNotEmpty) ...[
-                _buildSectionHeader('Older'),
-                ...olderNotifications.map((doc) => _buildNotificationItem(doc)).toList(),
-              ],
-            ],
-          );
-        },
+          : _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _notifications.isEmpty
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.notifications_none, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              "No notifications yet",
+              style: AppTextStyles.subHeading,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Notifications will appear here",
+              style: AppTextStyles.regular.copyWith(color: Colors.grey),
+            ),
+          ],
+        ),
+      )
+          : RefreshIndicator(
+        onRefresh: _loadNotifications,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Group notifications by date
+            ..._buildGroupedNotifications(),
+          ],
+        ),
       ),
     );
+  }
+
+  List<Widget> _buildGroupedNotifications() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final todayNotifications = _notifications.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final timestamp = data['createdAt'] as Timestamp?;
+      if (timestamp == null) return false;
+      final date = timestamp.toDate();
+      return date.isAfter(today);
+    }).toList();
+
+    final yesterdayNotifications = _notifications.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final timestamp = data['createdAt'] as Timestamp?;
+      if (timestamp == null) return false;
+      final date = timestamp.toDate();
+      return date.isAfter(yesterday) && date.isBefore(today);
+    }).toList();
+
+    final olderNotifications = _notifications.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final timestamp = data['createdAt'] as Timestamp?;
+      if (timestamp == null) return false;
+      final date = timestamp.toDate();
+      return date.isBefore(yesterday);
+    }).toList();
+
+    final widgets = <Widget>[];
+
+    if (todayNotifications.isNotEmpty) {
+      widgets.add(_buildSectionHeader('Today'));
+      widgets.addAll(todayNotifications.map((doc) => _buildNotificationItem(doc)).toList());
+    }
+
+    if (yesterdayNotifications.isNotEmpty) {
+      widgets.add(_buildSectionHeader('Yesterday'));
+      widgets.addAll(yesterdayNotifications.map((doc) => _buildNotificationItem(doc)).toList());
+    }
+
+    if (olderNotifications.isNotEmpty) {
+      widgets.add(_buildSectionHeader('Older'));
+      widgets.addAll(olderNotifications.map((doc) => _buildNotificationItem(doc)).toList());
+    }
+
+    return widgets;
   }
 
   Widget _buildSectionHeader(String title) {
@@ -136,6 +186,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final title = data['title'] ?? 'Notification';
     final timestamp = data['createdAt'] as Timestamp?;
     final time = _formatTime(timestamp);
+    final type = data['type'] ?? 'general';
 
     return _NotificationTile(
       id: doc.id,
@@ -143,10 +194,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       message: message,
       time: time,
       isRead: isRead,
+      type: type,
       onTap: () {
         // Mark as read when tapped
         if (!isRead) {
-          _firestore.collection('notifications').doc(doc.id).update({'read': true});
+          _markAsRead(doc.id);
         }
       },
     );
@@ -177,6 +229,7 @@ class _NotificationTile extends StatefulWidget {
   final String message;
   final String time;
   final bool isRead;
+  final String type;
   final VoidCallback onTap;
 
   const _NotificationTile({
@@ -185,6 +238,7 @@ class _NotificationTile extends StatefulWidget {
     required this.message,
     required this.time,
     required this.isRead,
+    required this.type,
     required this.onTap,
   });
 
@@ -194,6 +248,28 @@ class _NotificationTile extends StatefulWidget {
 
 class _NotificationTileState extends State<_NotificationTile> {
   bool _isExpanded = false;
+
+  Color _getNotificationColor() {
+    switch (widget.type) {
+      case 'feedback':
+        return AppColors.secondary;
+      case 'new_content':
+        return AppColors.primary;
+      default:
+        return const Color(0xFF414141);
+    }
+  }
+
+  IconData _getNotificationIcon() {
+    switch (widget.type) {
+      case 'feedback':
+        return Icons.feedback;
+      case 'new_content':
+        return Icons.new_releases;
+      default:
+        return Icons.notifications;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,14 +299,14 @@ class _NotificationTileState extends State<_NotificationTile> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF414141),
+                      color: _getNotificationColor(),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: widget.isRead ? const Color(0xFF6C7683) : const Color(0xFF48C78E),
+                        color: widget.isRead ? const Color(0xFF6C7683) : AppColors.success,
                         width: 2,
                       ),
                     ),
-                    child: const Icon(Icons.notifications, color: Colors.white),
+                    child: Icon(_getNotificationIcon(), color: Colors.white),
                   ),
                   const SizedBox(width: 16),
 

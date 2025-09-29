@@ -393,7 +393,7 @@ class _TopicCard extends StatelessWidget {
                     backgroundColor: AppColors.primary.withOpacity(0.4),
                     labelStyle: const TextStyle(color: AppColors.primary),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   ),
                   const SizedBox(width: 10),
                   Chip(
@@ -404,7 +404,7 @@ class _TopicCard extends StatelessWidget {
                     backgroundColor: AppColors.accent.withOpacity(0.4),
                     labelStyle: const TextStyle(color: AppColors.secondary),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   ),
                   const SizedBox(width: 10),
                   Chip(
@@ -415,7 +415,7 @@ class _TopicCard extends StatelessWidget {
                     backgroundColor: _getStatusColor(status).withOpacity(0.4),
                     labelStyle: TextStyle(color: _getStatusColor(status)),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   ),
                 ],
               ),

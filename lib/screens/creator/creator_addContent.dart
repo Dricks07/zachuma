@@ -32,11 +32,56 @@ class _AddContentState extends State<AddContent> {
 
   final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
-  final catCtrl = TextEditingController();
   final contentCtrl = TextEditingController();
-  final imageUrlCtrl = TextEditingController();
   final levelCtrl = TextEditingController(text: 'beginner');
   final statusCtrl = TextEditingController(text: 'draft');
+
+  // Predefined categories
+  final List<String> _categories = [
+    // 1. Money Basics
+    'Savings',
+    'Budgeting',
+    'Banking',
+    'Credit & Credit Scores',
+    'Debt Management',
+
+    // 2. Wealth Building
+    'Investing',
+    'Stocks',
+    'Bonds',
+    'Mutual Funds',
+    'Real Estate',
+    'Cryptocurrency',
+    'Entrepreneurship',
+    'Side Hustles',
+    'Passive Income',
+
+    // 3. Financial Planning
+    'Retirement & Early Retirement',
+    'Insurance',
+    'Taxes & Tax Planning',
+    'Education & College Planning',
+    'Estate Planning',
+
+    // 4. Advanced Finance
+    'Market Analysis',
+    'Portfolio Management',
+    'Asset Allocation',
+    'Investment Strategies',
+    'Wealth Preservation',
+
+    // 5. Financial Wellness
+    'Money Mindset',
+    'Frugal Living',
+    'Financial Goals & Independence',
+    'Cash Flow Management',
+    'Net Worth Tracking',
+    'Behavioral Finance',
+    'Financial Security',
+  ];
+
+
+  String? _selectedCategory;
 
   // Quiz questions
   List<Map<String, dynamic>> quizQuestions = [];
@@ -59,9 +104,8 @@ class _AddContentState extends State<AddContent> {
     if (widget.existing != null) {
       titleCtrl.text = widget.existing!['title'] ?? '';
       descCtrl.text = widget.existing!['description'] ?? '';
-      catCtrl.text = widget.existing!['category'] ?? '';
+      _selectedCategory = widget.existing!['category'] ?? '';
       contentCtrl.text = widget.existing!['content'] ?? '';
-      imageUrlCtrl.text = widget.existing!['imageUrl'] ?? '';
       levelCtrl.text = widget.existing!['level'] ?? 'beginner';
       if (widget.isReviewMode) {
         statusCtrl.text = widget.existing!['status'] ?? 'draft';
@@ -72,6 +116,9 @@ class _AddContentState extends State<AddContent> {
         quizQuestions =
         List<Map<String, dynamic>>.from(widget.existing!['quizQuestions']);
       }
+    } else {
+      // Set default category for new topics
+      _selectedCategory = _categories.isNotEmpty ? _categories[0] : null;
     }
   }
 
@@ -174,7 +221,7 @@ class _AddContentState extends State<AddContent> {
                 style: AppTextStyles.heading.copyWith(fontSize: 24)),
             const SizedBox(height: 24),
 
-            // Existing form fields...
+            // Form fields
             Wrap(
               runSpacing: 16,
               spacing: 16,
@@ -182,11 +229,7 @@ class _AddContentState extends State<AddContent> {
                 _textField(
                     "Title", titleCtrl, (v) => v!.isEmpty ? "Required" : null,
                     width: 500, enabled: canEdit),
-                _textField(
-                    "Category", catCtrl, (v) => v!.isEmpty ? "Required" : null,
-                    width: 500, enabled: canEdit),
-                _textField("Image URL (optional)", imageUrlCtrl, null,
-                    width: 500, enabled: canEdit),
+                _buildCategoryDropdown(width: 500, enabled: canEdit),
               ],
             ),
             const SizedBox(height: 20),
@@ -244,13 +287,47 @@ class _AddContentState extends State<AddContent> {
     );
   }
 
+  Widget _buildCategoryDropdown({double? width, bool enabled = true}) {
+    return SizedBox(
+      width: width ?? 300,
+      child: DropdownButtonFormField<String>(
+        value: _selectedCategory,
+        decoration: InputDecoration(
+          labelText: "Category",
+          labelStyle: AppTextStyles.regular.copyWith(
+              color: AppColors.textSecondary),
+          filled: true,
+          fillColor: enabled ? AppColors.surface : AppColors.background,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.accent, width: 1),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 14),
+        ),
+        items: _categories.map((String category) {
+          return DropdownMenuItem<String>(
+            value: category,
+            child: Text(category),
+          );
+        }).toList(),
+        validator: (value) => value == null ? "Please select a category" : null,
+        onChanged: enabled ? (value) {
+          setState(() {
+            _selectedCategory = value;
+          });
+        } : null,
+      ),
+    );
+  }
+
   Widget _buildMarkdownContentSection(bool canEdit) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text("Content (Markdown)", style: AppTextStyles.subHeading),
+            Text("Topic Content", style: AppTextStyles.subHeading),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.help_outline, size: 20),
@@ -290,34 +367,57 @@ class _AddContentState extends State<AddContent> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey[50],
       ),
       constraints: const BoxConstraints(minHeight: 200),
-      child: Markdown(
-        data: contentCtrl.text.isNotEmpty ? contentCtrl.text : "*No content to preview*",
-        styleSheet: MarkdownStyleSheet(
-          p: const TextStyle(
-            fontSize: 16,
-            fontFamily: 'Manrope',
-            height: 1.5,
+      width: double.infinity,
+      child: SingleChildScrollView(
+        child: MarkdownBody(
+          data: contentCtrl.text.isNotEmpty ? contentCtrl.text : "*No content to preview*",
+          styleSheet: MarkdownStyleSheet(
+            p: AppTextStyles.regular.copyWith(height: 1.6),
+            h1: AppTextStyles.heading,
+            h2: AppTextStyles.subHeading,
+            h3: AppTextStyles.midFont.copyWith(fontSize: 20),
+            h4: AppTextStyles.midFont,
+            strong: const TextStyle(fontWeight: FontWeight.bold),
+            em: const TextStyle(fontStyle: FontStyle.italic),
+            blockquote: TextStyle(
+              fontStyle: FontStyle.italic,
+              color: AppColors.textSecondary,
+            ),
+            blockquoteDecoration: BoxDecoration(
+              color: Colors.grey[100],
+              border: Border(
+                left: BorderSide(
+                  color: AppColors.primary,
+                  width: 4,
+                ),
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            code: TextStyle(
+              backgroundColor: Colors.grey[100],
+              color: AppColors.textPrimary,
+              fontFamily: 'monospace',
+            ),
+            codeblockPadding: const EdgeInsets.all(16),
+            codeblockDecoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            listIndent: 24.0,
+            listBullet: TextStyle(color: AppColors.primary),
+            tableHead: const TextStyle(fontWeight: FontWeight.bold),
+            tableBody: AppTextStyles.regular,
+            tableBorder: TableBorder.all(color: Colors.grey[300]!, width: 1),
+            tableHeadAlign: TextAlign.center,
+            tableColumnWidth: const FlexColumnWidth(),
           ),
-          h1: const TextStyle(
-            fontSize: 24,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-          ),
-          h2: const TextStyle(
-            fontSize: 20,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-          ),
-          h3: const TextStyle(
-            fontSize: 18,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-          ),
+          selectable: true,
         ),
       ),
     );
@@ -516,15 +616,24 @@ class _AddContentState extends State<AddContent> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please select a category"),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => saving = true);
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
       final data = {
         'title': titleCtrl.text.trim(),
         'description': descCtrl.text.trim(),
-        'category': catCtrl.text.trim(),
-        'content': contentCtrl.text.trim(), // This now contains Markdown
-        'imageUrl': imageUrlCtrl.text.trim(),
+        'category': _selectedCategory!.trim(),
+        'content': contentCtrl.text.trim(),
         'level': levelCtrl.text.trim(),
         'status': widget.isReviewMode ? statusCtrl.text.trim() : 'pending',
         'published': statusCtrl.text.trim() == 'published',

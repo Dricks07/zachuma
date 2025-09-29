@@ -1,10 +1,6 @@
-// lib/constants.dart
-
 import 'package:flutter/material.dart';
 
-/// ==================
 /// COLOR CONSTANTS
-/// ==================
 class AppColors {
   static const Color primary = Color(0xFF51B4E8);
   static const Color secondary = Color(0xFFFF8800);
@@ -18,9 +14,8 @@ class AppColors {
   static const Color textSecondary = Color(0xFF6D7684);
 }
 
-/// ==================
+
 /// TEXT STYLE CONSTANTS
-/// ==================
 class AppTextStyles {
   static const TextStyle heading = TextStyle(
     fontFamily: 'Poppins',

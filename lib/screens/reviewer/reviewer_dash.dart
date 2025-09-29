@@ -14,38 +14,6 @@ class ReviewerDash extends StatefulWidget {
 
 class _ReviewerDashState extends State<ReviewerDash> {
   final repo = AdminRepository();
-  int pendingReviews = 0, reviewedToday = 0, totalReviewed = 0;
-  bool loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadReviewStats();
-  }
-
-  Future<void> _loadReviewStats() async {
-    try {
-      // Get pending reviews
-      final pendingSnapshot = await repo.topicsCol
-          .where('status', isEqualTo: 'pending')
-          .count()
-          .get();
-
-      // Get today's reviews (you'll need to track this in your data model)
-      final today = DateTime.now();
-      final todayStart = DateTime(today.year, today.month, today.day);
-      // This would require a 'reviewedAt' timestamp field in your topics
-
-      setState(() {
-        pendingReviews = pendingSnapshot.count ?? 0;
-        reviewedToday = 0; // Implement actual counting logic
-        totalReviewed = 0; // Implement actual counting logic
-        loading = false;
-      });
-    } catch (_) {
-      setState(() => loading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,29 +23,29 @@ class _ReviewerDashState extends State<ReviewerDash> {
     return ReviewerShell(
       title: "Reviewer Dashboard",
       currentIndex: 0,
-      child: loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Content Review Overview", style: AppTextStyles.heading.copyWith(fontSize: 26)),
+            Text(
+              "Content Review Overview",
+              style: AppTextStyles.heading.copyWith(fontSize: 26),
+            ),
             const SizedBox(height: 20),
 
             // Overview Cards
-            isMobile
-                ? _buildMobileOverviewCards()
-                : _buildDesktopOverviewCards(),
+            isMobile ? _buildMobileOverviewCards() : _buildDesktopOverviewCards(),
 
             const SizedBox(height: 30),
 
-            // Quick Actions for Reviewer
+            // Quick Actions
             Text("Quick Actions", style: AppTextStyles.subHeading),
             const SizedBox(height: 14),
-            _buildReviewerQuickActions(),
+            _buildReviewerQuickActions(isMobile: isMobile),
 
             const SizedBox(height: 30),
 
+            // Pending Reviews
             Text("Topics Needing Review", style: AppTextStyles.subHeading),
             const SizedBox(height: 14),
             _buildPendingReviews(),
@@ -87,15 +55,15 @@ class _ReviewerDashState extends State<ReviewerDash> {
     );
   }
 
-  Widget _buildReviewerQuickActions() {
+  Widget _buildReviewerQuickActions({required bool isMobile}) {
     return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 1 : 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 2.5,
+        childAspectRatio: isMobile ? 3.0 : 2.5,
       ),
       children: [
         _buildQuickAction(
@@ -103,47 +71,52 @@ class _ReviewerDashState extends State<ReviewerDash> {
           Icons.rate_review,
           AppColors.primary,
               () => Navigator.pushNamed(context, '/reviewer/review'),
+          isMobile: isMobile,
         ),
         _buildQuickAction(
           "Review Guidelines",
           Icons.description,
           AppColors.secondary,
-              () => Navigator.pushNamed(context, '/reviewer/guidelines'),
-        ),
-        _buildQuickAction(
-          "Quality Metrics",
-          Icons.analytics,
-          AppColors.success,
-              () => Navigator.pushNamed(context, '/reviewer/metrics'),
-        ),
-        _buildQuickAction(
-          "Feedback History",
-          Icons.history,
-          AppColors.accent,
-              () => Navigator.pushNamed(context, '/reviewer/history'),
+              () => Navigator.pushNamed(context, '/reviewer/help'),
+          isMobile: isMobile,
         ),
       ],
     );
   }
 
-  Widget _buildQuickAction(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildQuickAction(
+      String title,
+      IconData icon,
+      Color color,
+      VoidCallback onTap, {
+        required bool isMobile,
+      }) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 20 : 16),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 24),
+              Icon(icon, color: color, size: isMobile ? 24 : 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
-                  style: AppTextStyles.midFont,
+                  style: AppTextStyles.midFont.copyWith(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.left,
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.textSecondary),
             ],
           ),
         ),
@@ -166,12 +139,14 @@ class _ReviewerDashState extends State<ReviewerDash> {
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(
+                child: CircularProgressIndicator(color: AppColors.primary));
           }
           final topics = snapshot.data!.docs;
           if (topics.isEmpty) {
             return Center(
-              child: Text("No topics pending review.", style: AppTextStyles.regular),
+              child: Text("No topics pending review.",
+                  style: AppTextStyles.regular),
             );
           }
           return ListView.separated(
@@ -182,19 +157,29 @@ class _ReviewerDashState extends State<ReviewerDash> {
             itemBuilder: (_, i) {
               final doc = topics[i];
               final data = doc.data() as Map<String, dynamic>;
+              final authorId = data['authorId'] ?? '';
+
               return ListTile(
                 leading: const Icon(Icons.hourglass_empty, color: AppColors.warning),
                 title: Text(data['title'] ?? 'Untitled', style: AppTextStyles.regular),
-                subtitle: Text('By: ${data['authorName'] ?? 'Unknown'}', style: AppTextStyles.notificationText),
-                trailing: Text(
-                  _formatTimeAgo(data['createdAt']),
-                  style: AppTextStyles.notificationText,
+                subtitle: FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance.collection('users').doc(authorId).get(),
+                  builder: (context, userSnapshot) {
+                    if (userSnapshot.connectionState == ConnectionState.waiting) {
+                      return Text('Loading author...', style: AppTextStyles.notificationText);
+                    }
+
+                    if (userSnapshot.hasError || !userSnapshot.hasData || !userSnapshot.data!.exists) {
+                      return Text('By: Unknown', style: AppTextStyles.notificationText);
+                    }
+
+                    final userData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+                    final authorName = userData['name'] ?? 'Unknown';
+                    return Text('By: $authorName', style: AppTextStyles.notificationText);
+                  },
                 ),
-                onTap: () => Navigator.pushNamed(
-                    context,
-                    '/reviewer/review',
-                    arguments: {'topicId': doc.id}
-                ),
+                trailing: Text(_formatTimeAgo(data['createdAt']), style: AppTextStyles.notificationText),
+                onTap: () => Navigator.pushNamed(context, '/reviewer/review', arguments: {'topicId': doc.id}),
               );
             },
           );
@@ -249,28 +234,64 @@ class _ReviewerDashState extends State<ReviewerDash> {
     );
   }
 
+  Stream<int> _countPending() {
+    return repo.topicsCol
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Stream<int> _countReviewedToday() {
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    return repo.topicsCol
+        .where('status', isNotEqualTo: 'pending')
+        .where('reviewedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Stream<int> _countTotalReviewed() {
+    return repo.topicsCol
+        .where('status', isNotEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
   Widget _buildDesktopOverviewCards() {
     return Column(
       children: [
         Row(
           children: [
             Expanded(
-              child: _buildOverviewCard(
-                icon: Icons.hourglass_empty,
-                title: "Pending Review",
-                value: "$pendingReviews",
-                onTap: () => Navigator.pushNamed(context, '/reviewer/review'),
-                iconColor: AppColors.warning,
+              child: StreamBuilder<int>(
+                stream: _countPending(),
+                builder: (context, snapshot) {
+                  final pending = snapshot.data ?? 0;
+                  return _buildOverviewCard(
+                    icon: Icons.hourglass_empty,
+                    title: "Pending Review",
+                    value: "$pending",
+                    onTap: () => Navigator.pushNamed(context, '/reviewer/review'),
+                    iconColor: AppColors.warning,
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildOverviewCard(
-                icon: Icons.today,
-                title: "Reviewed Today",
-                value: "$reviewedToday",
-                onTap: () => Navigator.pushNamed(context, '/reviewer/history?filter=today'),
-                iconColor: AppColors.success,
+              child: StreamBuilder<int>(
+                stream: _countReviewedToday(),
+                builder: (context, snapshot) {
+                  final today = snapshot.data ?? 0;
+                  return _buildOverviewCard(
+                    icon: Icons.today,
+                    title: "Reviewed Today",
+                    value: "$today",
+                    onTap: () => Navigator.pushNamed(context, '/reviewer/history?filter=today'),
+                    iconColor: AppColors.success,
+                  );
+                },
               ),
             ),
           ],
@@ -279,22 +300,18 @@ class _ReviewerDashState extends State<ReviewerDash> {
         Row(
           children: [
             Expanded(
-              child: _buildOverviewCard(
-                icon: Icons.checklist,
-                title: "Total Reviewed",
-                value: "$totalReviewed",
-                onTap: () => Navigator.pushNamed(context, '/reviewer/history'),
-                iconColor: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildOverviewCard(
-                icon: Icons.timer,
-                title: "Avg. Time",
-                value: "8min",
-                onTap: () => Navigator.pushNamed(context, '/reviewer/metrics'),
-                iconColor: AppColors.accent,
+              child: StreamBuilder<int>(
+                stream: _countTotalReviewed(),
+                builder: (context, snapshot) {
+                  final total = snapshot.data ?? 0;
+                  return _buildOverviewCard(
+                    icon: Icons.checklist,
+                    title: "Total Reviewed",
+                    value: "$total",
+                    onTap: () => Navigator.pushNamed(context, '/reviewer/history'),
+                    iconColor: AppColors.primary,
+                  );
+                },
               ),
             ),
           ],
@@ -306,36 +323,46 @@ class _ReviewerDashState extends State<ReviewerDash> {
   Widget _buildMobileOverviewCards() {
     return Column(
       children: [
-        _buildOverviewCard(
-          icon: Icons.hourglass_empty,
-          title: "Pending Review",
-          value: "$pendingReviews",
-          onTap: () => Navigator.pushNamed(context, '/reviewer/review'),
-          iconColor: AppColors.warning,
+        StreamBuilder<int>(
+          stream: _countPending(),
+          builder: (context, snapshot) {
+            final pending = snapshot.data ?? 0;
+            return _buildOverviewCard(
+              icon: Icons.hourglass_empty,
+              title: "Pending Review",
+              value: "$pending",
+              onTap: () => Navigator.pushNamed(context, '/reviewer/review'),
+              iconColor: AppColors.warning,
+            );
+          },
         ),
         const SizedBox(height: 16),
-        _buildOverviewCard(
-          icon: Icons.today,
-          title: "Reviewed Today",
-          value: "$reviewedToday",
-          onTap: () => Navigator.pushNamed(context, '/reviewer/history?filter=today'),
-          iconColor: AppColors.success,
+        StreamBuilder<int>(
+          stream: _countReviewedToday(),
+          builder: (context, snapshot) {
+            final today = snapshot.data ?? 0;
+            return _buildOverviewCard(
+              icon: Icons.today,
+              title: "Reviewed Today",
+              value: "$today",
+              onTap: () => Navigator.pushNamed(context, '/reviewer/history?filter=today'),
+              iconColor: AppColors.success,
+            );
+          },
         ),
         const SizedBox(height: 16),
-        _buildOverviewCard(
-          icon: Icons.checklist,
-          title: "Total Reviewed",
-          value: "$totalReviewed",
-          onTap: () => Navigator.pushNamed(context, '/reviewer/history'),
-          iconColor: AppColors.primary,
-        ),
-        const SizedBox(height: 16),
-        _buildOverviewCard(
-          icon: Icons.timer,
-          title: "Avg. Time",
-          value: "8min",
-          onTap: () => Navigator.pushNamed(context, '/reviewer/metrics'),
-          iconColor: AppColors.accent,
+        StreamBuilder<int>(
+          stream: _countTotalReviewed(),
+          builder: (context, snapshot) {
+            final total = snapshot.data ?? 0;
+            return _buildOverviewCard(
+              icon: Icons.checklist,
+              title: "Total Reviewed",
+              value: "$total",
+              onTap: () => Navigator.pushNamed(context, '/reviewer/history'),
+              iconColor: AppColors.primary,
+            );
+          },
         ),
       ],
     );

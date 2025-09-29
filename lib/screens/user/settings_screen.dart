@@ -229,14 +229,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await AuthService().signOut();
-              navigatorKey.currentState?.pushNamedAndRemoveUntil('/signin', (route) => false);
-              ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-                SnackBar(
-                  content: Text("Logged out successfully", style: AppTextStyles.regular.copyWith(color: AppColors.surface)),
-                  backgroundColor: AppColors.success,
-                ),
-              );
             },
             child: const Text('Rate Now'),
           ),

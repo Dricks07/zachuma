@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:za_chuma/constants.dart';
@@ -22,7 +23,27 @@ class _TopicsScreenState extends State<TopicsScreen> {
   bool _syncing = false;
   bool _isOnline = true;
   String _searchQuery = '';
+  String _filterLevel = 'all';
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+
+  // List of available background images
+  final List<String> _backgroundImages = [
+    'assets/images/bg_image1.png',
+    'assets/images/bg_image2.png',
+    'assets/images/bg_image3.png',
+    'assets/images/bg_image4.png',
+    'assets/images/bg_image5.png',
+    'assets/images/bg_image6.png',
+    'assets/images/bg_image7.png',
+  ];
+
+  // Level filters
+  final List<Map<String, dynamic>> _levelFilters = [
+    {'value': 'all', 'label': 'All Topics', 'color': AppColors.primary},
+    {'value': 'beginner', 'label': 'Beginner', 'color': AppColors.success},
+    {'value': 'intermediate', 'label': 'Intermediate', 'color': AppColors.warning},
+    {'value': 'advanced', 'label': 'Advanced', 'color': AppColors.error},
+  ];
 
   @override
   void initState() {
@@ -36,6 +57,12 @@ class _TopicsScreenState extends State<TopicsScreen> {
   void dispose() {
     _connectivitySubscription?.cancel();
     super.dispose();
+  }
+
+  // Helper method to assign a consistent image to a topic based on its ID
+  String _getTopicImage(String topicId) {
+    final random = Random(topicId.hashCode);
+    return _backgroundImages[random.nextInt(_backgroundImages.length)];
   }
 
   Future<void> _initConnectivity() async {
@@ -60,8 +87,17 @@ class _TopicsScreenState extends State<TopicsScreen> {
   Future<void> _loadTopics() async {
     try {
       final topics = await _syncService.getTopics();
+
+      // Assign images to each topic
+      final topicsWithImages = topics.map((topic) {
+        return {
+          ...topic,
+          'assignedImage': _getTopicImage(topic['id']),
+        };
+      }).toList();
+
       setState(() {
-        _topics = topics;
+        _topics = topicsWithImages;
         _loading = false;
       });
     } catch (e) {
@@ -77,13 +113,6 @@ class _TopicsScreenState extends State<TopicsScreen> {
       await _syncService.forceSync();
       await _loadTopics();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Data synced successfully'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -98,13 +127,27 @@ class _TopicsScreenState extends State<TopicsScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredTopics {
-    if (_searchQuery.isEmpty) return _topics;
-    return _topics.where((topic) {
-      final title = (topic['title'] ?? '').toString().toLowerCase();
-      final category = (topic['category'] ?? '').toString().toLowerCase();
-      return title.contains(_searchQuery.toLowerCase()) ||
-          category.contains(_searchQuery.toLowerCase());
-    }).toList();
+    var filtered = _topics;
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((topic) {
+        final title = (topic['title'] ?? '').toString().toLowerCase();
+        final category = (topic['category'] ?? '').toString().toLowerCase();
+        return title.contains(_searchQuery.toLowerCase()) ||
+            category.contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
+    // Apply level filter
+    if (_filterLevel != 'all') {
+      filtered = filtered.where((topic) {
+        final level = (topic['level'] ?? 'beginner').toString().toLowerCase();
+        return level == _filterLevel;
+      }).toList();
+    }
+
+    return filtered;
   }
 
   Widget _buildSyncIndicator() {
@@ -188,18 +231,63 @@ class _TopicsScreenState extends State<TopicsScreen> {
         onRefresh: _manualSync,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildPageHeading(context, isSmallScreen),
               const SizedBox(height: 16),
               _buildSearchBar(isSmallScreen),
+              const SizedBox(height: 12),
+              _buildFilterChips(isSmallScreen),
               const SizedBox(height: 16),
               _buildTopicsGrid(isSmallScreen, gridCount),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(bool isSmallScreen) {
+    return SizedBox(
+      height: isSmallScreen ? 40 : 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: _levelFilters.map((filter) {
+          final isSelected = _filterLevel == filter['value'];
+          final defaultColor = AppColors.textSecondary;
+          final selectedColor = filter['color'];
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: FilterChip(
+              label: Text(
+                filter['label'],
+                style: TextStyle(
+                  color: isSelected ? Colors.white : defaultColor,
+                  fontWeight: FontWeight.w500,
+                  fontSize: isSmallScreen ? 12 : 14,
+                ),
+              ),
+              selected: isSelected,
+              backgroundColor: Colors.white,
+              selectedColor: selectedColor,
+              checkmarkColor: Colors.white,
+              shape: StadiumBorder(
+                side: BorderSide(
+                  color: isSelected ? selectedColor : defaultColor,
+                  width: 1.5,
+                ),
+              ),
+              onSelected: (selected) {
+                setState(() {
+                  _filterLevel = selected ? filter['value'] : 'all';
+                });
+              },
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -218,13 +306,13 @@ class _TopicsScreenState extends State<TopicsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                _searchQuery.isEmpty
+                _searchQuery.isEmpty && _filterLevel == 'all'
                     ? 'No topics available'
-                    : 'No topics found for "$_searchQuery"',
+                    : 'No topics found',
                 style: AppTextStyles.regular.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
-              if (_searchQuery.isEmpty && _isOnline)
+              if (_searchQuery.isEmpty && _filterLevel == 'all' && _isOnline)
                 TextButton(
                   onPressed: _manualSync,
                   child: const Text('Try syncing again'),
@@ -250,8 +338,9 @@ class _TopicsScreenState extends State<TopicsScreen> {
         return _buildTopicCard(
           topic['id'],
           topic['title'] ?? 'Untitled',
-          topic['duration'] ?? '30m',
-          topic['imageUrl'],
+          topic['duration'] ?? '10m',
+          topic['level'] ?? 'beginner',
+          topic['assignedImage'],
           isSmallScreen,
           rating: (topic['rating'] as num?)?.toDouble() ?? 4.0,
         );
@@ -259,7 +348,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
     );
   }
 
-  Widget _buildTopicCard(String topicId, String title, String duration, String? imageUrl, bool isSmallScreen, {double rating = 4.0}) {
+  Widget _buildTopicCard(String topicId, String title, String duration, String level, String? imagePath, bool isSmallScreen, {double rating = 4.0}) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -279,17 +368,13 @@ class _TopicsScreenState extends State<TopicsScreen> {
         ),
         child: Stack(
           children: [
-            // Background Image
+            // Background Image - Using offline image
             Container(
               height: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 image: DecorationImage(
-                  image: NetworkImage(
-                    imageUrl?.isNotEmpty == true
-                        ? imageUrl!
-                        : "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=200&h=200&fit=crop&auto=format",
-                  ),
+                  image: AssetImage(imagePath ?? _backgroundImages.first),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -310,6 +395,27 @@ class _TopicsScreenState extends State<TopicsScreen> {
               ),
             ),
 
+            // Level badge
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getLevelColor(level).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  level.toUpperCase(),
+                  style: AppTextStyles.regular.copyWith(
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+
             // Content overlay
             Positioned(
               bottom: 8,
@@ -322,7 +428,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.textPrimary.withOpacity(0.5),
+                      color: AppColors.textPrimary.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
@@ -368,6 +474,19 @@ class _TopicsScreenState extends State<TopicsScreen> {
         ),
       ),
     );
+  }
+
+  Color _getLevelColor(String level) {
+    switch (level.toLowerCase()) {
+      case 'beginner':
+        return AppColors.success;
+      case 'intermediate':
+        return AppColors.warning;
+      case 'advanced':
+        return AppColors.error;
+      default:
+        return AppColors.primary;
+    }
   }
 
   Widget _buildSearchBar(bool isSmallScreen) {
@@ -434,12 +553,8 @@ class _TopicsScreenState extends State<TopicsScreen> {
               color: AppColors.textPrimary,
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: AppColors.primary),
-            onPressed: () {
-              // TODO: implement filter
-            },
-          ),
+          // Removed filter icon button since we now have filter chips
+          const SizedBox(width: 48), // Maintain balance
         ],
       ),
     );

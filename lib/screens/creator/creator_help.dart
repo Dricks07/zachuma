@@ -12,7 +12,7 @@ class CreatorHelp extends StatelessWidget {
       title: "Creator Help",
       currentIndex: 5,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

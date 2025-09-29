@@ -17,6 +17,7 @@ import 'package:za_chuma/screens/admin/admin_users.dart';
 import 'package:za_chuma/screens/sign_in_screen.dart';
 import 'package:za_chuma/screens/sign_up_screen.dart';
 import 'package:za_chuma/screens/splash_screen.dart';
+import 'package:za_chuma/screens/user/discover_screen.dart';
 import 'package:za_chuma/screens/welcome_screen.dart';
 
 import 'package:za_chuma/screens/user/chatbot_screen.dart';
@@ -153,6 +154,7 @@ class MyApp extends StatelessWidget {
         '/user/learning': (context) => const LearningScreen(topicId: '', topicTitle: ''),
         '/user/notifications': (context) => const NotificationsPage(),
         '/user/settings': (context) => const SettingsScreen(),
+        '/user/discover': (context) => const DiscoverScreen(),
       },
     );
   }

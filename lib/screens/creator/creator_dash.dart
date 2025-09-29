@@ -120,7 +120,7 @@ class _CreatorDashState extends State<CreatorDash> {
           "New Topic",
           Icons.add_circle,
           AppColors.primary,
-              () => Navigator.pushNamed(context, '/creator/add-content'),
+              () => Navigator.pushNamed(context, '/creator/addContent'),
         ),
         _buildQuickAction(
           "My Topics",
@@ -132,7 +132,7 @@ class _CreatorDashState extends State<CreatorDash> {
           "Drafts",
           Icons.edit,
           AppColors.warning,
-              () => Navigator.pushNamed(context, '/creator/topics?filter=draft'),
+              () => Navigator.pushNamed(context, '/creator/topics', arguments: {'filter': 'draft'}),
         ),
         _buildQuickAction(
           "Feedback",

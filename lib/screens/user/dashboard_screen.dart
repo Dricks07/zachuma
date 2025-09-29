@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:za_chuma/constants.dart';
@@ -24,6 +25,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isOnline = true;
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
 
+  // Variables to store today's topic and recommended topics
+  Map<String, dynamic>? _todaysTopic;
+  List<Map<String, dynamic>> _recommendedTopics = [];
+
+  // List of available background images
+  final List<String> _backgroundImages = [
+    'assets/images/bg_image1.png',
+    'assets/images/bg_image2.png',
+    'assets/images/bg_image3.png',
+    'assets/images/bg_image4.png',
+    'assets/images/bg_image5.png',
+    'assets/images/bg_image6.png',
+    'assets/images/bg_image7.png',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -36,6 +52,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     _connectivitySubscription?.cancel();
     super.dispose();
+  }
+
+  // Helper method to assign a consistent image to a topic based on its ID
+  String _getTopicImage(String topicId) {
+    final random = Random(topicId.hashCode);
+    return _backgroundImages[random.nextInt(_backgroundImages.length)];
+  }
+
+  // Helper method to get a random topic based on the day
+  Map<String, dynamic> _getTodaysTopic(List<Map<String, dynamic>> topics) {
+    if (topics.isEmpty) return {};
+
+    // Use the current date to seed the random generator for consistency throughout the day
+    final now = DateTime.now();
+    final daySeed = now.year * 10000 + now.month * 100 + now.day;
+    final random = Random(daySeed);
+
+    return topics[random.nextInt(topics.length)];
+  }
+
+  // Helper method to get recommended topics (max 4, excluding today's topic)
+  List<Map<String, dynamic>> _getRecommendedTopics(
+      List<Map<String, dynamic>> topics, Map<String, dynamic> todaysTopic) {
+    if (topics.isEmpty) return [];
+
+    // Filter out today's topic
+    final filteredTopics = topics.where((topic) => topic != todaysTopic).toList();
+
+    // If we have 4 or fewer topics after filtering, return them all
+    if (filteredTopics.length <= 4) return filteredTopics;
+
+    // Otherwise, select 4 random topics using a consistent seed
+    final random = Random(DateTime.now().millisecondsSinceEpoch);
+    final selectedIndices = <int>{};
+
+    while (selectedIndices.length < 4) {
+      selectedIndices.add(random.nextInt(filteredTopics.length));
+    }
+
+    return selectedIndices.map((index) => filteredTopics[index]).toList();
   }
 
   Future<void> _initConnectivity() async {
@@ -61,8 +117,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadTopics() async {
     try {
       final topics = await _syncService.getTopics();
+
+      // Assign images to each topic
+      final topicsWithImages = topics.map((topic) {
+        return {
+          ...topic,
+          'assignedImage': _getTopicImage(topic['id']),
+        };
+      }).toList();
+
+      final todaysTopic = _getTodaysTopic(topicsWithImages);
+      final recommendedTopics = _getRecommendedTopics(topicsWithImages, todaysTopic);
+
       setState(() {
-        _topics = topics;
+        _topics = topicsWithImages;
+        _todaysTopic = todaysTopic;
+        _recommendedTopics = recommendedTopics;
         _loading = false;
       });
     } catch (e) {
@@ -190,7 +260,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
       child: Text(
         title,
         style: AppTextStyles.subHeading.copyWith(
@@ -203,10 +273,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTodaysTopicCard() {
-    final todayTopic = _topics.isNotEmpty ? _topics[0] : null;
+    final todayTopic = _todaysTopic ?? {};
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Card(
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -216,12 +286,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           width: double.infinity,
           child: Stack(
             children: [
-              // Background Image
+              // Background Image - Using assigned offline image
               Positioned.fill(
-                child: Image.network(
-                  todayTopic?['imageUrl']?.isNotEmpty == true
-                      ? todayTopic!['imageUrl']
-                      : "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=220&fit=crop",
+                child: Image.asset(
+                  todayTopic['assignedImage'] ?? _backgroundImages.first,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
@@ -234,9 +302,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Frosted Glass Title Container
               Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
+                top: 10,
+                left: 10,
+                right: 10,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: BackdropFilter(
@@ -244,11 +312,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Container(
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.textSecondary.withOpacity(0.4),
+                        color: AppColors.textPrimary.withOpacity(0.6),
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        todayTopic?['title'] ?? 'Financial Literacy',
+                        todayTopic['title'] ?? 'Financial Literacy',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.subHeading.copyWith(
                           fontSize: 20,
@@ -263,15 +331,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Frosted Glass Content Container
               Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
+                bottom: 10,
+                left: 10,
+                right: 10,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                     child: Container(
-                      height: 140,
+                      height: 150,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.textPrimary.withOpacity(0.6),
@@ -279,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       alignment: Alignment.center,
                       child: SingleChildScrollView(
                         child: Text(
-                          todayTopic?['description'] ?? 'Learn essential financial concepts to manage your money effectively.',
+                          todayTopic['description'] ?? 'Learn essential financial concepts to manage your money effectively.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.regular.copyWith(
                             fontSize: 14,
@@ -301,17 +369,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildActionButtons() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
           Expanded(
             child: ElevatedButton(
-              onPressed: _topics.isNotEmpty
+              onPressed: _todaysTopic != null && _todaysTopic!['id'] != null
                   ? () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => TopicOverview(topicId: _topics[0]['id']),
+                    builder: (_) => TopicOverview(topicId: _todaysTopic!['id']),
                   ),
                 );
               }
@@ -371,28 +439,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCourseGrid(BuildContext context) {
-    final recommendedCourses = _topics.length > 4 ? _topics.sublist(0, 4) : _topics;
+    // Ensure we never show more than 4 topics (2x2 grid)
+    final displayTopics = _recommendedTopics.length > 4
+        ? _recommendedTopics.sublist(0, 4)
+        : _recommendedTopics;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+          crossAxisCount: 2, //ensure 2x2 grid
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.8,
         ),
-        itemCount: recommendedCourses.length,
+        itemCount: displayTopics.length,
         itemBuilder: (context, index) {
-          final topic = recommendedCourses[index];
+          final topic = displayTopics[index];
           return CourseCard(
             topicId: topic['id'],
             title: topic['title'] ?? 'Untitled',
             duration: topic['duration'] ?? '30m',
             rating: (topic['rating'] as num?)?.toDouble() ?? 4.0,
-            imageUrl: topic['imageUrl'],
+            imagePath: topic['assignedImage'],
           );
         },
       ),
@@ -405,7 +476,7 @@ class CourseCard extends StatelessWidget {
   final String title;
   final String duration;
   final double rating;
-  final String? imageUrl;
+  final String? imagePath;
 
   const CourseCard({
     super.key,
@@ -413,7 +484,7 @@ class CourseCard extends StatelessWidget {
     required this.title,
     required this.duration,
     required this.rating,
-    this.imageUrl,
+    required this.imagePath,
   });
 
   @override
@@ -437,12 +508,10 @@ class CourseCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Background Image
+              // Background Image - Using assigned offline image
               Positioned.fill(
-                child: Image.network(
-                  imageUrl?.isNotEmpty == true
-                      ? imageUrl!
-                      : "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=200&h=200&fit=crop",
+                child: Image.asset(
+                  imagePath ?? 'assets/images/bg_image1.png',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
@@ -460,7 +529,7 @@ class CourseCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        AppColors.textPrimary.withOpacity(0.3)
+                        AppColors.textPrimary.withOpacity(0.8)
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -479,9 +548,9 @@ class CourseCard extends StatelessWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
                     child: Container(
-                      padding: const EdgeInsets.all(5),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.textPrimary.withOpacity(0.5),
+                        color: AppColors.textPrimary.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(

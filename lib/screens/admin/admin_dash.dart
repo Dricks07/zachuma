@@ -110,22 +110,23 @@ class _AdminDashState extends State<AdminDash> {
 
   Widget _buildQuickAction(String title, IconData icon, Color color, VoidCallback onTap) {
     return Card(
+      elevation: 2,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 30),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTextStyles.midFont.copyWith(fontSize: 14),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: AppTextStyles.midFont.copyWith(fontSize: 14),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ],
           ),
