@@ -1,4 +1,3 @@
-// screens/admin/admin_dash.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -68,36 +67,43 @@ class _AdminDashState extends State<AdminDash> {
     return AdminShell(
       title: "Admin Dashboard",
       currentIndex: 0,
-      unreadNotifications: unreadNotifications, // Pass to shell for badge
+      unreadNotifications: unreadNotifications,
       child: loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("System Overview", style: AppTextStyles.heading.copyWith(fontSize: 26)),
-            const SizedBox(height: 20),
+          : Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("System Overview", style: AppTextStyles.heading.copyWith(fontSize: 26)),
+                  const SizedBox(height: 20),
 
-            // Overview Cards
-            isMobile
-                ? _buildMobileOverviewCards()
-                : _buildDesktopOverviewCards(),
+                  // Overview Cards
+                  isMobile
+                      ? _buildMobileOverviewCards()
+                      : _buildDesktopOverviewCards(),
 
-            const SizedBox(height: 30),
+                  const SizedBox(height: 30),
 
-            // Quick Actions for Admin
-            Text("Quick Actions", style: AppTextStyles.subHeading),
-            const SizedBox(height: 14),
-            _buildAdminQuickActions(isMobile: isMobile),
+                  // Quick Actions for Admin
+                  Text("Quick Actions", style: AppTextStyles.subHeading),
+                  const SizedBox(height: 14),
+                  _buildAdminQuickActions(isMobile: isMobile),
 
-            const SizedBox(height: 30),
+                  const SizedBox(height: 30),
 
-            Text("Recent Alerts", style: AppTextStyles.subHeading),
-            const SizedBox(height: 14),
-            _buildRecentAlerts(),
-          ],
-        ),
+                  Text("Recent Alerts", style: AppTextStyles.subHeading),
+                  const SizedBox(height: 14),
+                  _buildRecentAlerts(),
+                  const SizedBox(height: 20), // Added extra padding at bottom
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -130,20 +136,23 @@ class _AdminDashState extends State<AdminDash> {
       ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isMobile ? 2 : 4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: isMobile ? 1.2 : 1.0,
+    return SizedBox(
+      height: isMobile ? 120 : 100, // Fixed height to prevent overflow
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: isMobile ? 2 : 4,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: isMobile ? 1.5 : 2.0, // Adjusted for better fit
+        ),
+        itemCount: actions.length,
+        itemBuilder: (context, index) {
+          final action = actions[index];
+          return _buildQuickActionCard(action);
+        },
       ),
-      itemCount: actions.length,
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        return _buildQuickActionCard(action);
-      },
     );
   }
 
@@ -155,24 +164,24 @@ class _AdminDashState extends State<AdminDash> {
         onTap: () => Navigator.pushNamed(context, action.route),
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12), // Reduced padding
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 32, // Smaller icon
+                height: 32,
                 decoration: BoxDecoration(
                   color: action.color.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(action.icon, color: action.color, size: 24),
+                child: Icon(action.icon, color: action.color, size: 16),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6), // Reduced spacing
               Text(
                 action.title,
-                style: AppTextStyles.midFont.copyWith(
-                  fontSize: 14,
+                style: AppTextStyles.regular.copyWith( // Smaller font
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,

@@ -14,7 +14,7 @@ class AdminAlerts extends StatefulWidget {
 
 class _AdminAlertsState extends State<AdminAlerts> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
-  String _filterType = 'all'; // 'all', 'unread', 'feedback', 'user', 'system'
+  String _filterType = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,7 @@ class _AdminAlertsState extends State<AdminAlerts> {
       title: "Alerts",
       currentIndex: 3,
       child: Padding(
-        padding: const EdgeInsets.all(0),
+        padding: const EdgeInsets.all(16), // FIX: Added padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,7 +43,7 @@ class _AdminAlertsState extends State<AdminAlerts> {
             _buildFilterBar(),
             const SizedBox(height: 16),
 
-            // Alerts list
+            // Alerts list - FIX: Added Expanded
             Expanded(
               child: _buildNotificationsList(),
             ),
@@ -68,7 +68,14 @@ class _AdminAlertsState extends State<AdminAlerts> {
         final total = notifications.length;
         final unread = notifications.where((doc) => !(doc['isRead'] ?? false)).length;
         final feedbackCount = notifications.where((doc) => doc['type'] == 'feedback').length;
-        final urgent = notifications.where((doc) => doc['priority'] == 'high').length;
+
+        // FIX: Removed priority field check since it doesn't exist
+        final urgent = notifications.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          // Check if it's unread and of important types
+          return !(data['isRead'] ?? false) &&
+              (data['type'] == 'system' || data['type'] == 'feedback');
+        }).length;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -97,6 +104,7 @@ class _AdminAlertsState extends State<AdminAlerts> {
     );
   }
 
+  // ... rest of your AdminAlerts methods remain the same
   Widget _buildStatsLoading() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -148,13 +156,11 @@ class _AdminAlertsState extends State<AdminAlerts> {
         ),
         Row(
           children: [
-            // Mark all as read
             IconButton(
               icon: Icon(Icons.mark_email_read, color: AppColors.primary),
               onPressed: _markAllAsRead,
               tooltip: 'Mark all as read',
             ),
-            // Filter dropdown
             PopupMenuButton<String>(
               icon: Icon(Icons.filter_list, color: AppColors.primary),
               onSelected: (value) {
@@ -182,7 +188,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
         .where('userId', isEqualTo: currentUser?.uid)
         .orderBy('timestamp', descending: true);
 
-    // Apply filters
     if (_filterType == 'unread') {
       query = query.where('isRead', isEqualTo: false);
     } else if (_filterType != 'all') {
@@ -258,7 +263,9 @@ class _AdminAlertsState extends State<AdminAlerts> {
         (data['timestamp'] as Timestamp).toDate())
         : 'Unknown time';
     final feedbackId = data['feedbackId'];
-    final priority = data['priority'] ?? 'normal';
+
+    // FIX: Removed priority field since it doesn't exist
+    final hasHighPriority = type == 'system' || !isRead;
 
     IconData icon;
     Color color;
@@ -291,9 +298,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
         backgroundColor = AppColors.textSecondary.withOpacity(0.2);
     }
 
-    // High priority notifications get a different border
-    final hasHighPriority = priority == 'high';
-
     return GestureDetector(
       onTap: () => _handleNotificationTap(notificationId, data, context),
       child: Container(
@@ -315,7 +319,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
         ),
         child: Row(
           children: [
-            // Icon
             Container(
               width: 40,
               height: 40,
@@ -327,7 +330,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
             ),
             const SizedBox(width: 16),
 
-            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +371,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
               ),
             ),
 
-            // Status indicator
             if (!isRead)
               Container(
                 width: 12,
@@ -386,7 +387,6 @@ class _AdminAlertsState extends State<AdminAlerts> {
   }
 
   void _handleNotificationTap(String notificationId, Map<String, dynamic> data, BuildContext context) async {
-    // Mark as read
     if (!(data['isRead'] ?? false)) {
       await FirebaseFirestore.instance
           .collection('notifications')
@@ -394,43 +394,27 @@ class _AdminAlertsState extends State<AdminAlerts> {
           .update({'isRead': true});
     }
 
-    // Navigate based on notification type
     final type = data['type'];
     final feedbackId = data['feedbackId'];
 
     switch (type) {
       case 'feedback':
         if (feedbackId != null) {
-          // Navigate to feedback page with the specific feedback
-          Navigator.pushNamed(
-            context,
-            '/admin/feedback',
-            // You can pass arguments if your routing supports it
-            // arguments: {'highlightFeedbackId': feedbackId}
-          );
+          Navigator.pushNamed(context, '/admin/feedback');
         } else {
-          // Navigate to general feedback page
           Navigator.pushNamed(context, '/admin/feedback');
         }
         break;
-
       case 'user':
-      // Navigate to users management
         Navigator.pushNamed(context, '/admin/users');
         break;
-
       case 'course':
-      // Navigate to content management
         Navigator.pushNamed(context, '/admin/content');
         break;
-
       case 'system':
-      // Navigate to system settings or show system alert
         _showSystemAlertDialog(data, context);
         break;
-
       default:
-      // Show notification details
         _showNotificationDetails(data, context);
         break;
     }

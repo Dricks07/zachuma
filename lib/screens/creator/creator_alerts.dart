@@ -1,10 +1,10 @@
-// lib/screens/creator/creator_alerts.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../constants.dart';
 import 'creator_shell.dart';
-import 'creator_feedback.dart'; // Import the feedback screen
+import 'creator_feedback.dart';
 
 class CreatorAlerts extends StatefulWidget {
   const CreatorAlerts({super.key});
@@ -49,15 +49,28 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                   .where('userId', isEqualTo: currentUserId)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return _buildStatsLoading();
+                }
+
+                if (snapshot.hasError) {
+                  return _buildStatsError(snapshot.error.toString());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildStatsEmpty();
                 }
 
                 final notifications = snapshot.data!.docs;
-                final unreadCount = notifications.where((n) => !(n.data() as Map<String, dynamic>)['read']).length;
-                final feedbackCount = notifications.where((n) =>
-                (n.data() as Map<String, dynamic>)['type'] == 'feedback' &&
-                    !(n.data() as Map<String, dynamic>)['read']).length;
+                final unreadCount = notifications.where((n) {
+                  final data = n.data() as Map<String, dynamic>;
+                  return !(data['read'] ?? false);
+                }).length;
+
+                final feedbackCount = notifications.where((n) {
+                  final data = n.data() as Map<String, dynamic>;
+                  return data['type'] == 'feedback' && !(data['read'] ?? false);
+                }).length;
 
                 return Container(
                   padding: const EdgeInsets.all(16),
@@ -122,7 +135,6 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
 
             const SizedBox(height: 16),
 
-            // Alerts list
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: _firestore.collection('notifications')
@@ -130,40 +142,26 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                     .orderBy('createdAt', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final notifications = snapshot.data!.docs;
-
-                  // Apply filters
-                  final filteredNotifications = notifications.where((notification) {
-                    final data = notification.data() as Map<String, dynamic>;
-
-                    if (_filterType == 'all') return true;
-                    if (_filterType == 'feedback') return data['type'] == 'feedback';
-                    if (_filterType == 'unread') return !data['read'];
-
-                    return true;
-                  }).toList();
-
-                  if (filteredNotifications.isEmpty) {
+                  if (snapshot.hasError) {
+                    print('Error loading notifications: ${snapshot.error}'); // Debug print
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.notifications_none, size: 64, color: Colors.grey),
+                          Icon(Icons.error_outline, size: 48, color: AppColors.error),
                           const SizedBox(height: 16),
                           Text(
-                            "No notifications",
-                            style: AppTextStyles.subHeading,
+                            'Error loading notifications',
+                            style: AppTextStyles.midFont,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _filterType == 'all'
-                                ? "You'll see notifications here when you receive them"
-                                : "No ${_filterType} notifications",
-                            style: AppTextStyles.regular.copyWith(color: Colors.grey),
+                            snapshot.error.toString(),
+                            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -171,11 +169,37 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                     );
                   }
 
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    print('No notifications data found'); // Debug print
+                    return _buildEmptyState();
+                  }
+
+                  final notifications = snapshot.data!.docs;
+                  print('Found ${notifications.length} notifications'); // Debug print
+
+                  // Apply filters
+                  final filteredNotifications = notifications.where((notification) {
+                    final data = notification.data() as Map<String, dynamic>;
+
+                    if (_filterType == 'all') return true;
+                    if (_filterType == 'feedback') return data['type'] == 'feedback';
+                    if (_filterType == 'unread') return !(data['read'] ?? false); // CHANGED: 'read' instead of 'isRead'
+
+                    return true;
+                  }).toList();
+
+                  print('Filtered to ${filteredNotifications.length} notifications'); // Debug print
+
+                  if (filteredNotifications.isEmpty) {
+                    return _buildEmptyState(filtered: true);
+                  }
+
                   return ListView.builder(
                     itemCount: filteredNotifications.length,
                     itemBuilder: (context, index) {
                       final notification = filteredNotifications[index];
                       final data = notification.data() as Map<String, dynamic>;
+                      print('Notification $index: $data'); // Debug print
 
                       return _buildAlertCard(notification.id, data);
                     },
@@ -185,6 +209,60 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatsLoading() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem('Total', '...', AppColors.primary),
+          _buildStatItem('Unread', '...', AppColors.secondary),
+          _buildStatItem('Feedback', '...', AppColors.accent),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsEmpty() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          'No notifications yet',
+          style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsError(String error) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, size: 24, color: AppColors.error),
+          const SizedBox(height: 8),
+          Text(
+            'Failed to load stats',
+            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
       ),
     );
   }
@@ -210,12 +288,42 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
     );
   }
 
+  Widget _buildEmptyState({bool filtered = false}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none, size: 64, color: AppColors.textSecondary),
+          const SizedBox(height: 16),
+          Text(
+            "No notifications",
+            style: AppTextStyles.subHeading,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            filtered
+                ? "No ${_filterType == 'unread' ? 'unread' : _filterType} notifications"
+                : "You'll see notifications here when you receive them",
+            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAlertCard(String id, Map<String, dynamic> alert) {
+    final isRead = alert['read'] ?? false; // CHANGED: 'read' instead of 'isRead'
+    final type = alert['type'] ?? 'general';
+    final title = alert['title'] ?? 'Notification';
+    final message = alert['message'] ?? 'No message content';
+    final timestamp = alert['createdAt']; // CHANGED: 'createdAt' instead of 'timestamp'
+
     IconData icon;
     Color color;
     VoidCallback? onTap;
 
-    switch (alert['type']) {
+    switch (type) {
       case 'approval':
         icon = Icons.check_circle;
         color = AppColors.success;
@@ -228,7 +336,6 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
         icon = Icons.feedback;
         color = AppColors.accent;
         onTap = () {
-          // Navigate to feedback screen with the specific topicId
           final topicId = alert['topicId'];
           if (topicId != null) {
             Navigator.push(
@@ -238,7 +345,6 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
               ),
             );
           } else {
-            // If no topicId, navigate to general feedback page
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CreatorFeedback()),
@@ -280,11 +386,13 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
               offset: const Offset(0, 2),
             ),
           ],
-          border: !alert['read'] ? Border.all(color: color, width: 1) : null,
+          border: !isRead ? Border.all(color: color, width: 1) : null,
         ),
         child: InkWell(
           onTap: () {
-            _firestore.collection('notifications').doc(id).update({'read': true});
+            if (!isRead) {
+              _firestore.collection('notifications').doc(id).update({'read': true}); // CHANGED: 'read' instead of 'isRead'
+            }
             if (onTap != null) onTap!();
           },
           child: Row(
@@ -304,15 +412,15 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      alert['title'] ?? 'Notification',
+                      title,
                       style: AppTextStyles.regular.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: alert['read'] ? AppColors.textPrimary : color,
+                        color: isRead ? AppColors.textPrimary : color,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      alert['message'] ?? 'No message',
+                      message,
                       style: AppTextStyles.regular.copyWith(
                         color: AppColors.textSecondary,
                         fontSize: 14,
@@ -322,7 +430,7 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatTime(alert['createdAt']),
+                      _formatTime(timestamp),
                       style: AppTextStyles.regular.copyWith(
                         color: AppColors.textSecondary,
                         fontSize: 12,
@@ -331,7 +439,7 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
                   ],
                 ),
               ),
-              if (!alert['read'])
+              if (!isRead)
                 Container(
                   width: 12,
                   height: 12,
@@ -350,20 +458,25 @@ class _CreatorAlertsState extends State<CreatorAlerts> {
   String _formatTime(dynamic timestamp) {
     if (timestamp == null) return 'Unknown time';
 
-    DateTime time;
-    if (timestamp is Timestamp) {
-      time = timestamp.toDate();
-    } else {
-      return 'Invalid time';
+    try {
+      DateTime time;
+      if (timestamp is Timestamp) {
+        time = timestamp.toDate();
+      } else {
+        return 'Invalid time';
+      }
+
+      final now = DateTime.now();
+      final difference = now.difference(time);
+
+      if (difference.inMinutes < 1) return 'Just now';
+      if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+      if (difference.inHours < 24) return '${difference.inHours}h ago';
+      if (difference.inDays < 7) return '${difference.inDays}d ago';
+
+      return DateFormat('MMM dd, yyyy').format(time);
+    } catch (e) {
+      return 'Unknown time';
     }
-
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
-    if (difference.inHours < 24) return '${difference.inHours}h ago';
-    if (difference.inDays < 7) return '${difference.inDays}d ago';
-
-    return '${time.day}/${time.month}/${time.year}';
   }
 }

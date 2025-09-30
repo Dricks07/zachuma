@@ -70,15 +70,25 @@ class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Save a conversation to Firestore
-  Future<void> saveConversation(String conversationId, List<Map<String, dynamic>> messages) async {
+  Future<void> saveConversation(String conversationId, List<Map<String, dynamic>> messages, {String? customTitle}) async {
     try {
+      String title = customTitle ?? 'New Chat';
+
+      // Only generate title from user messages if no custom title provided
+      if (customTitle == null) {
+        final userMessages = messages.where((msg) => msg['isUser'] == true).toList();
+        if (userMessages.isNotEmpty) {
+          title = _generateTitle(userMessages.first['text']);
+        }
+      }
+
       await _firestore
           .collection('conversations')
           .doc(conversationId)
           .set({
         'messages': messages,
         'lastUpdated': FieldValue.serverTimestamp(),
-        'title': messages.isNotEmpty ? _generateTitle(messages.first['text']) : 'New Chat',
+        'title': title,
       });
     } catch (e) {
       print('Error saving conversation: $e');
@@ -109,7 +119,7 @@ class FirestoreService {
         .delete();
   }
 
-  // Generate a title from the first message
+  // Generate a title from the first user message
   String _generateTitle(String firstMessage) {
     if (firstMessage.length <= 30) return firstMessage;
     return '${firstMessage.substring(0, 30)}...';
@@ -215,45 +225,30 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isLoading = false;
   String? _currentConversationId;
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  bool _hasUserSentMessage = false;
 
   @override
   void initState() {
     super.initState();
     _createNewConversation();
-    _addWelcomeMessage();
   }
 
   void _createNewConversation() {
     setState(() {
       _currentConversationId = DateTime.now().millisecondsSinceEpoch.toString();
-    });
-  }
-
-  void _addWelcomeMessage() {
-    setState(() {
-      _messages.add({
-        "text": """# Welcome to ZaChuma AI! 💰
-
-I'm your financial assistant here to help you with:
-
-- **Budgeting & Saving** 💸
-- **Investing & Wealth Building** 📈  
-- **Debt Management** 🏦
-- **Retirement Planning** 🏖️
-- **Tax Optimization** 📊
-- **Financial Goal Setting** 🎯
-
-Ask me anything about personal finance!""",
-        "isUser": false,
-        "timestamp": DateTime.now(),
-      });
+      _hasUserSentMessage = false;
     });
   }
 
   void _sendMessage() async {
-    if (_controller.text.trim().isEmpty) return;
+    if (_controller.text.trim().isEmpty || _isLoading) return;
 
     String userMessage = _controller.text.trim();
+
+    // Dismiss keyboard smoothly
+    _focusNode.unfocus();
+
     setState(() {
       _messages.add({
         "text": userMessage,
@@ -262,6 +257,7 @@ Ask me anything about personal finance!""",
       });
       _controller.clear();
       _isLoading = true;
+      _hasUserSentMessage = true;
     });
 
     // Auto-scroll to bottom
@@ -273,8 +269,12 @@ Ask me anything about personal finance!""",
       );
     });
 
-    // Save conversation after user message
-    await _firestoreService.saveConversation(_currentConversationId!, _messages);
+    // Save conversation after user message with the first user message as title
+    await _firestoreService.saveConversation(
+      _currentConversationId!,
+      _messages,
+      customTitle: userMessage, // Use the first user message as title
+    );
 
     // Send to OpenRouter AI
     String aiResponse = await _openRouterService.sendMessage(userMessage);
@@ -297,7 +297,7 @@ Ask me anything about personal finance!""",
       );
     });
 
-    // Save conversation after AI response
+    // Update conversation with AI response
     await _firestoreService.saveConversation(_currentConversationId!, _messages);
   }
 
@@ -305,7 +305,6 @@ Ask me anything about personal finance!""",
     setState(() {
       _messages.clear();
       _createNewConversation();
-      _addWelcomeMessage();
     });
   }
 
@@ -325,6 +324,7 @@ Ask me anything about personal finance!""",
           _messages.clear();
           _messages.addAll(List<Map<String, dynamic>>.from(data['messages'] ?? []));
           _currentConversationId = conversationId;
+          _hasUserSentMessage = _messages.any((msg) => msg['isUser'] == true);
         });
         Navigator.of(context).pop(); // Close history dialog
       }
@@ -457,12 +457,15 @@ Ask me anything about personal finance!""",
         backgroundColor: AppColors.surface,
         elevation: 2,
         centerTitle: true,
-        title: Text(
-          "ZaChuma Assistant",
-          style: AppTextStyles.heading.copyWith(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            "ZaChuma Assistant",
+            style: AppTextStyles.heading.copyWith(
+              fontSize: 20, // Slightly smaller for better fit
+              fontWeight: FontWeight.w700,
+              color: AppColors.secondary,
+            ),
           ),
         ),
         actions: [
@@ -558,39 +561,57 @@ Ask me anything about personal finance!""",
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.account_balance_wallet, size: 64, color: AppColors.primary),
-            SizedBox(height: 16),
-            Text(
-              "Welcome to ZaChuma AI!",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet,
+                  size: 60,
+                  color: AppColors.primary,
+                ),
               ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Your personal financial assistant\nAsk me about budgeting, investing, or saving!",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textPrimary,
+              const SizedBox(height: 24),
+              Text(
+                "How can I help with your finances today?",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                "Ask me about budgeting, investing, saving, or any financial questions you have",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildInputBar() {
+    final bool canSend = _controller.text.trim().isNotEmpty && !_isLoading;
+
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -611,32 +632,37 @@ Ask me anything about personal finance!""",
             Expanded(
               child: TextField(
                 controller: _controller,
+                focusNode: _focusNode,
                 style: AppTextStyles.regular.copyWith(fontSize: 16),
                 decoration: const InputDecoration(
-                  hintText: "Ask about finance, investing, budgeting...",
+                  hintText: "Ask about your finances...",
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
                 onSubmitted: (_) => _sendMessage(),
+                onChanged: (value) {
+                  setState(() {}); // Rebuild to update send button state
+                },
                 maxLines: 3,
                 minLines: 1,
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: _sendMessage,
-              child: Container(
+              onTap: canSend ? _sendMessage : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _controller.text.trim().isEmpty
-                      ? AppColors.primary.withOpacity(0.5)
-                      : AppColors.primary,
+                  color: canSend
+                      ? AppColors.primary // Brighter color when active
+                      : AppColors.primary.withOpacity(0.4),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   LucideIcons.send,
                   size: 20,
-                  color: Colors.white,
+                  color: canSend ? Colors.white : Colors.white.withOpacity(0.8),
                 ),
               ),
             )

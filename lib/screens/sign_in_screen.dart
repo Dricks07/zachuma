@@ -47,7 +47,6 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _redirectUserBasedOnRole(String role, String userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final quizDone = prefs.getBool('quizDone') ?? false;
 
     switch (role) {
       case 'admin':

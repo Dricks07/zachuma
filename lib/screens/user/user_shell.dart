@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants.dart';
@@ -28,6 +29,8 @@ class UserShell extends StatefulWidget {
 class _UserShellState extends State<UserShell> {
   User? currentUser;
   Map<String, dynamic>? profileData;
+  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -41,10 +44,12 @@ class _UserShellState extends State<UserShell> {
       } else {
         setState(() => currentUser = user);
         _loadProfileData();
+        _loadNotifications();
       }
     });
 
     _loadProfileData();
+    _loadNotifications();
   }
 
   Future<void> _loadProfileData() async {
@@ -57,6 +62,37 @@ class _UserShellState extends State<UserShell> {
         setState(() => profileData = doc.data());
       }
     }
+  }
+
+  Future<void> _loadNotifications() async {
+    if (currentUser != null) {
+      try {
+        _notificationsSubscription = FirebaseFirestore.instance
+            .collection('notifications')
+            .where('userId', isEqualTo: currentUser!.uid)
+            .snapshots()
+            .listen((snapshot) {
+          if (mounted) {
+            final unreadCount = snapshot.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return !(data['read'] ?? false);
+            }).length;
+
+            setState(() {
+              _unreadNotificationsCount = unreadCount;
+            });
+          }
+        });
+      } catch (e) {
+        debugPrint("Failed to load notifications: $e");
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _notificationsSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -94,10 +130,18 @@ class _UserShellState extends State<UserShell> {
           ),
         ],
       ),
-      drawer: isWide ? null : _UserDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+      drawer: isWide ? null : _UserDrawer(
+        currentIndex: widget.currentIndex,
+        profileData: profileData,
+        unreadNotificationsCount: _unreadNotificationsCount,
+      ),
       body: Row(
         children: [
-          if (isWide) _UserDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+          if (isWide) _UserDrawer(
+            currentIndex: widget.currentIndex,
+            profileData: profileData,
+            unreadNotificationsCount: _unreadNotificationsCount,
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(left: 10, right: 10),
@@ -156,6 +200,19 @@ class _UserShellState extends State<UserShell> {
   }
 
   BottomNavigationBar _buildBottomNav(BuildContext context) {
+    final navItems = [
+      {'icon': Icons.home, 'label': "Home", 'route': '/user/dashboard'},
+      {'icon': Icons.book, 'label': "Topics", 'route': '/user/topics'},
+      {'icon': Icons.search, 'label': "Discover", 'route': '/user/discover'},
+      {
+        'icon': Icons.notifications,
+        'label': "Alerts",
+        'route': '/user/notifications',
+        'badgeCount': _unreadNotificationsCount,
+      },
+      {'icon': Icons.settings, 'label': "Settings", 'route': '/user/settings'},
+    ];
+
     return BottomNavigationBar(
       backgroundColor: AppColors.surface,
       currentIndex: widget.currentIndex,
@@ -163,23 +220,53 @@ class _UserShellState extends State<UserShell> {
       unselectedItemColor: AppColors.textPrimary,
       type: BottomNavigationBarType.fixed,
       onTap: (idx) {
-        final routes = [
-          '/user/dashboard',
-          '/user/topics',
-          '/user/discover',
-          '/user/notifications',
-          '/user/settings'
-        ];
-        if (idx < routes.length && idx != widget.currentIndex) {
-          Navigator.pushReplacementNamed(context, routes[idx]);
+        if (idx < navItems.length && idx != widget.currentIndex) {
+          Navigator.pushReplacementNamed(context, navItems[idx]['route'] as String);
         }
       },
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        BottomNavigationBarItem(icon: Icon(Icons.book), label: "Topics"),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: "Discover"),
-        BottomNavigationBarItem(icon: Icon(Icons.notifications), label: "Alerts"),
-        BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Settings"),
+      items: navItems.map((item) {
+        final badgeCount = item['badgeCount'] as int? ?? 0;
+
+        return BottomNavigationBarItem(
+          icon: badgeCount > 0 ? _buildBadgeIcon(
+            icon: Icon(item['icon'] as IconData),
+            badgeCount: badgeCount,
+          ) : Icon(item['icon'] as IconData),
+          label: item['label'] as String,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildBadgeIcon({required Widget icon, required int badgeCount}) {
+    return Stack(
+      children: [
+        icon,
+        if (badgeCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                badgeCount > 9 ? '9+' : badgeCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -189,20 +276,31 @@ class _UserShellState extends State<UserShell> {
 class _UserDrawer extends StatelessWidget {
   final int currentIndex;
   final Map<String, dynamic>? profileData;
+  final int unreadNotificationsCount;
 
-  const _UserDrawer({required this.currentIndex, this.profileData});
+  const _UserDrawer({
+    required this.currentIndex,
+    this.profileData,
+    required this.unreadNotificationsCount,
+  });
 
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
-      {'icon': Icons.home, 'label': 'Home', 'route': '/user/dashboard'},
-      {'icon': Icons.book, 'label': 'Topics', 'route': '/user/topics'},
-      {'icon': Icons.explore, 'label': 'Discover', 'route': '/user/discover'},
-      {'icon': Icons.notifications, 'label': 'Alerts', 'route': '/user/notifications'},
-      {'icon': Icons.settings, 'label': 'Settings', 'route': '/user/settings'},
-      {'icon': Icons.feedback, 'label': 'Submit Feedback', 'route': '/user/feedback'},
-      {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/user/help'},
-      {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'isLogout': true},
+      {'icon': Icons.home, 'label': 'Home', 'route': '/user/dashboard', 'index': 0},
+      {'icon': Icons.book, 'label': 'Topics', 'route': '/user/topics', 'index': 1},
+      {'icon': Icons.explore, 'label': 'Discover', 'route': '/user/discover', 'index': 2},
+      {
+        'icon': Icons.notifications,
+        'label': 'Alerts',
+        'route': '/user/notifications',
+        'index': 3,
+        'badgeCount': unreadNotificationsCount,
+      },
+      {'icon': Icons.settings, 'label': 'Settings', 'route': '/user/settings', 'index': 4},
+      {'icon': Icons.feedback, 'label': 'Submit Feedback', 'route': '/user/feedback', 'index': 5},
+      {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/user/help', 'index': 6},
+      {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'index': 7, 'isLogout': true},
     ];
 
     return Container(
@@ -266,14 +364,35 @@ class _UserDrawer extends StatelessWidget {
             final icon = item['icon'] as IconData;
             final label = item['label'] as String;
             final route = item['route'] as String;
-            return _drawerItem(context, i, icon, label, route, isLogout: isLogout);
+            final index = item['index'] as int;
+            final badgeCount = item['badgeCount'] as int? ?? 0;
+
+            return _drawerItem(
+              context,
+              index,
+              icon,
+              label,
+              route,
+              badgeCount: badgeCount,
+              isLogout: isLogout,
+            );
           }),
         ],
       ),
     );
   }
 
-  Widget _drawerItem(BuildContext context, int idx, IconData icon, String label, String route, {bool isLogout = false}) {
+  Widget _drawerItem(
+      BuildContext context,
+      int idx,
+      IconData icon,
+      String label,
+      String route,
+      {
+        bool isLogout = false,
+        int badgeCount = 0,
+      }
+      ) {
     final selected = currentIndex == idx;
     return Material(
       color: selected ? AppColors.secondary.withOpacity(0.1) : Colors.transparent,
@@ -295,11 +414,29 @@ class _UserDrawer extends StatelessWidget {
             children: [
               Icon(icon, color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textSecondary)),
               const SizedBox(width: 16),
-              Text(label,
-                  style: AppTextStyles.midFont.copyWith(
-                    color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textPrimary),
-                    fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                  )),
+              Expanded(
+                child: Text(label,
+                    style: AppTextStyles.midFont.copyWith(
+                      color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textPrimary),
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                    )),
+              ),
+              if (badgeCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badgeCount > 9 ? '9+' : badgeCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

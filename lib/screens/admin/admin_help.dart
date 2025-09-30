@@ -9,38 +9,38 @@ class AdminHelp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminShell(
       title: "Help Center",
-      currentIndex: 8,
+      currentIndex: 8, // Corresponds to the drawer index
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Help & Support", style: AppTextStyles.heading.copyWith(fontSize: 24)),
-            const SizedBox(height: 20),
+            // Welcome Section
+            _buildWelcomeHeader(),
+            const SizedBox(height: 24),
 
-            // Welcome Card
-            Card(
-              color: AppColors.primary.withOpacity(0.05),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Icon(Icons.help_outline, color: AppColors.primary, size: 32),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Welcome to Help Center", style: AppTextStyles.midFont.copyWith(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Text("Find answers to common questions and get support", style: AppTextStyles.regular),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Key Responsibilities
+            Text("Key Admin Responsibilities", style: AppTextStyles.subHeading),
+            const SizedBox(height: 16),
+            _buildResponsibilityCard(
+              "User Management",
+              Icons.people_outline,
+              "Oversee all registered users. You can change user roles (e.g., promote a user to a 'Creator' or 'Reviewer') and block or unblock user accounts as needed.",
+              AppColors.primary,
+            ),
+            const SizedBox(height: 12),
+            _buildResponsibilityCard(
+              "Content Oversight",
+              Icons.article_outlined,
+              "Monitor all topics within the system. While content creation is handled by Creators, you have the ability to view topic details and delete content if necessary.",
+              AppColors.secondary,
+            ),
+            const SizedBox(height: 12),
+            _buildResponsibilityCard(
+              "System Analytics & Reporting",
+              Icons.analytics_outlined,
+              "Monitor the health and activity of the platform through real-time analytics and generate detailed CSV reports on user activity, content status, and system logs.",
+              AppColors.success,
             ),
             const SizedBox(height: 24),
 
@@ -49,148 +49,95 @@ class AdminHelp extends StatelessWidget {
             const SizedBox(height: 16),
 
             _buildFAQItem(
-              "How to add a new course?",
-              "To add a new course, navigate to the Courses page and click the 'New Course' button. Fill in the required details including title, description, difficulty level, and content. You can upload text, video, or audio materials. Once submitted, the course will go through review before being published.",
+              "How do I manage user roles?",
+              "Navigate to the 'Users' page from the main dashboard. Here you will see a list of all users. Each user card has a dropdown menu allowing you to change their role (e.g., 'user', 'creator', 'reviewer', 'admin'). You can also use the 'Block User' button to suspend their access.",
             ),
-            const SizedBox(height: 8),
-
             _buildFAQItem(
-              "How to manage user permissions?",
-              "User permissions can be managed from the Users page. Click on any user to view their profile and select 'Make Admin' or 'Demote' to change their role. Admin users have full system access, while regular users can only access learning content. You can also reset user passwords and manage their account status.",
+              "How do I generate a report?",
+              "Go to the 'Reports' page. First, select the type of report you need (User Activity, Content Status, or System Logs). Next, select a date range using the calendar. Finally, click 'Generate Report'. You can then view the data and download it as a CSV file.",
             ),
-            const SizedBox(height: 8),
-
             _buildFAQItem(
-              "How to generate reports?",
-              "Reports can be generated from the Reports page. Select the report type (user activity, course completion, financial metrics) and specify the date range. Click 'Generate Report' to create a detailed PDF report. You can also schedule automated reports to be sent to your email.",
+              "How do I view platform analytics?",
+              "The 'Analytics' page provides a real-time snapshot of your platform. It includes key metrics like the total number of users and topics, as well as a live feed of the most recent activities, such as new user registrations and content submissions.",
             ),
-            const SizedBox(height: 8),
-
             _buildFAQItem(
-              "How to handle user feedback?",
-              "User feedback is managed in the Feedback section. You can view all submitted feedback, mark items as resolved, and respond to users. Use the filter options to sort by feedback type (bug reports, suggestions, etc.) and status (new, in-progress, resolved).",
-            ),
-            const SizedBox(height: 8),
-
-            _buildFAQItem(
-              "System maintenance procedures",
-              "For system maintenance, use the Settings page to perform backups, clear cache, and update system configurations. Major updates should be scheduled during off-peak hours. Always notify users in advance of planned maintenance through the notification system.",
-            ),
-            const SizedBox(height: 8),
-
-            _buildFAQItem(
-              "Troubleshooting common issues",
-              "Common issues include user login problems, content loading errors, and notification failures. Check the System Alerts page for any active issues. For user-specific problems, verify their account status and try resetting their password. For content issues, check if the files are properly uploaded and accessible.",
-            ),
-            const SizedBox(height: 24),
-
-            // Quick Guides Section
-            Text("Quick Guides", style: AppTextStyles.subHeading),
-            const SizedBox(height: 16),
-
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _buildGuideCard("User Management", Icons.people, "Manage users and permissions"),
-                _buildGuideCard("Content Creation", Icons.article, "Create and edit courses"),
-                _buildGuideCard("Analytics", Icons.analytics, "View system statistics"),
-                _buildGuideCard("Notifications", Icons.notifications, "Manage alerts and messages"),
-              ],
+              "How do I manage app settings?",
+              "On the 'Settings' page, you can manage the list of available topic categories that Creators can assign to their content. You can also enable or disable core features, such as the AI Chatbot and offline content syncing for learners.",
             ),
             const SizedBox(height: 24),
 
             // Support Contact
-            Card(
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.support_agent, color: AppColors.primary, size: 24),
-                        const SizedBox(width: 12),
-                        Text("Need more help?", style: AppTextStyles.subHeading),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Our support team is here to help you with any questions or issues you may encounter while using the ZaChuma admin panel.",
-                      style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Contact Methods
-                    _buildContactMethod(
-                      Icons.email,
-                      "Email Support",
-                      "support@zachuma.com",
-                      "We typically respond within 2 hours",
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildContactMethod(
-                      Icons.phone,
-                      "Phone Support",
-                      "+265 993 283 331",
-                      "Available Monday-Friday, 8AM-6PM",
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildContactMethod(
-                      Icons.chat,
-                      "Live Chat",
-                      "Available in app",
-                      "Get instant help from our team",
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildContactMethod(
-                      Icons.description,
-                      "Documentation",
-                      "Online guides",
-                      "Comprehensive admin documentation",
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Emergency Section
-            Card(
-              color: AppColors.error.withOpacity(0.05),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: AppColors.error.withOpacity(0.3)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, color: AppColors.error, size: 24),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Emergency Support", style: AppTextStyles.midFont.copyWith(color: AppColors.error)),
-                          const SizedBox(height: 4),
-                          Text(
-                            "For critical system issues requiring immediate attention",
-                            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildSupportSection(),
             const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    return Card(
+      color: AppColors.primary.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary, size: 36),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Admin Help Center", style: AppTextStyles.heading.copyWith(fontSize: 20)),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Find answers and guides for managing the ZaChuma platform effectively.",
+                    style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResponsibilityCard(String title, IconData icon, String description, Color color) {
+    return Card(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTextStyles.midFont.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -201,12 +148,14 @@ class AdminHelp extends StatelessWidget {
     return Card(
       color: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         title: Text(question, style: AppTextStyles.midFont),
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Text(
               answer,
               style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary, height: 1.5),
@@ -217,38 +166,33 @@ class AdminHelp extends StatelessWidget {
     );
   }
 
-  Widget _buildGuideCard(String title, IconData icon, String description) {
+  Widget _buildSupportSection() {
     return Card(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 20),
+            Row(
+              children: [
+                Icon(Icons.support_agent, color: AppColors.primary, size: 24),
+                const SizedBox(width: 12),
+                Text("Need More Help?", style: AppTextStyles.subHeading),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
-              title,
-              style: AppTextStyles.midFont.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              "If you encounter a critical issue or have a question not covered here, please contact technical support.",
+              style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: AppTextStyles.regular.copyWith(fontSize: 12, color: AppColors.textSecondary),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 20),
+            _buildSupportOption(
+              Icons.email_outlined,
+              "Email Support",
+              "support@zachuma.com",
             ),
           ],
         ),
@@ -256,7 +200,7 @@ class AdminHelp extends StatelessWidget {
     );
   }
 
-  Widget _buildContactMethod(IconData icon, String title, String detail, String description) {
+  Widget _buildSupportOption(IconData icon, String title, String detail) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -264,7 +208,7 @@ class AdminHelp extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, color: AppColors.primary, size: 20),
           const SizedBox(width: 12),
@@ -275,11 +219,6 @@ class AdminHelp extends StatelessWidget {
                 Text(title, style: AppTextStyles.midFont.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(detail, style: AppTextStyles.regular),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary, fontSize: 12),
-                ),
               ],
             ),
           ),

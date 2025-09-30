@@ -29,6 +29,8 @@ class _ReviewerShellState extends State<ReviewerShell> {
   Map<String, dynamic>? profileData;
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<DocumentSnapshot>? _profileSubscription;
+  StreamSubscription<QuerySnapshot>? _notificationsSubscription;
+  int _unreadNotificationsCount = 0;
 
   @override
   void initState() {
@@ -43,11 +45,13 @@ class _ReviewerShellState extends State<ReviewerShell> {
       } else {
         setState(() => currentUser = user);
         _loadProfileData();
+        _loadNotifications();
       }
     });
 
     if (currentUser != null) {
       _loadProfileData();
+      _loadNotifications();
     }
   }
 
@@ -70,10 +74,36 @@ class _ReviewerShellState extends State<ReviewerShell> {
     }
   }
 
+  Future<void> _loadNotifications() async {
+    if (currentUser != null) {
+      try {
+        _notificationsSubscription = FirebaseFirestore.instance
+            .collection('notifications')
+            .where('userId', isEqualTo: currentUser!.uid)
+            .snapshots()
+            .listen((snapshot) {
+          if (mounted) {
+            final unreadCount = snapshot.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return !(data['read'] ?? false);
+            }).length;
+
+            setState(() {
+              _unreadNotificationsCount = unreadCount;
+            });
+          }
+        });
+      } catch (e) {
+        debugPrint("Failed to load notifications: $e");
+      }
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();
     _profileSubscription?.cancel();
+    _notificationsSubscription?.cancel();
     super.dispose();
   }
 
@@ -120,10 +150,18 @@ class _ReviewerShellState extends State<ReviewerShell> {
           ),
         ],
       ),
-      drawer: isWide ? null : _ReviewerDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+      drawer: isWide ? null : _ReviewerDrawer(
+        currentIndex: widget.currentIndex,
+        profileData: profileData,
+        unreadNotificationsCount: _unreadNotificationsCount,
+      ),
       body: Row(
         children: [
-          if (isWide) _ReviewerDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+          if (isWide) _ReviewerDrawer(
+            currentIndex: widget.currentIndex,
+            profileData: profileData,
+            unreadNotificationsCount: _unreadNotificationsCount,
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -147,7 +185,12 @@ class _ReviewerShellState extends State<ReviewerShell> {
     final navItems = [
       {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/reviewer/dashboard'},
       {'icon': Icons.rate_review, 'label': 'Review', 'route': '/reviewer/review'},
-      {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/reviewer/alerts'},
+      {
+        'icon': Icons.notifications_outlined,
+        'label': 'Alerts',
+        'route': '/reviewer/alerts',
+        'badgeCount': _unreadNotificationsCount,
+      },
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/reviewer/help'},
     ];
 
@@ -162,11 +205,49 @@ class _ReviewerShellState extends State<ReviewerShell> {
         }
       },
       items: navItems.map((item) {
+        final badgeCount = item['badgeCount'] as int? ?? 0;
+
         return BottomNavigationBarItem(
-          icon: Icon(item['icon'] as IconData),
+          icon: badgeCount > 0 ? _buildBadgeIcon(
+            icon: Icon(item['icon'] as IconData),
+            badgeCount: badgeCount,
+          ) : Icon(item['icon'] as IconData),
           label: item['label'] as String,
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildBadgeIcon({required Widget icon, required int badgeCount}) {
+    return Stack(
+      children: [
+        icon,
+        if (badgeCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                badgeCount > 9 ? '9+' : badgeCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -174,15 +255,26 @@ class _ReviewerShellState extends State<ReviewerShell> {
 class _ReviewerDrawer extends StatelessWidget {
   final int currentIndex;
   final Map<String, dynamic>? profileData;
+  final int unreadNotificationsCount;
 
-  const _ReviewerDrawer({required this.currentIndex, this.profileData});
+  const _ReviewerDrawer({
+    required this.currentIndex,
+    this.profileData,
+    required this.unreadNotificationsCount,
+  });
 
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
       {'icon': Icons.home_outlined, 'label': 'Home', 'route': '/reviewer/dashboard', 'index': 0},
       {'icon': Icons.rate_review, 'label': 'Review', 'route': '/reviewer/review', 'index': 1},
-      {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/reviewer/alerts', 'index': 2},
+      {
+        'icon': Icons.notifications_outlined,
+        'label': 'Alerts',
+        'route': '/reviewer/alerts',
+        'index': 2,
+        'badgeCount': unreadNotificationsCount,
+      },
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/reviewer/help', 'index': 3},
       {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'index': 4, 'isLogout': true},
     ];
@@ -247,14 +339,34 @@ class _ReviewerDrawer extends StatelessWidget {
             final label = item['label'] as String;
             final route = item['route'] as String;
             final index = item['index'] as int;
-            return _drawerItem(context, index, icon, label, route, isLogout: isLogout);
+            final badgeCount = item['badgeCount'] as int? ?? 0;
+
+            return _drawerItem(
+              context,
+              index,
+              icon,
+              label,
+              route,
+              badgeCount: badgeCount,
+              isLogout: isLogout,
+            );
           }),
         ],
       ),
     );
   }
 
-  Widget _drawerItem(BuildContext context, int idx, IconData icon, String label, String route, {bool isLogout = false}) {
+  Widget _drawerItem(
+      BuildContext context,
+      int idx,
+      IconData icon,
+      String label,
+      String route,
+      {
+        bool isLogout = false,
+        int badgeCount = 0,
+      }
+      ) {
     final selected = currentIndex == idx;
     final bool isWide = MediaQuery.of(context).size.width >= 1000;
 
@@ -279,11 +391,29 @@ class _ReviewerDrawer extends StatelessWidget {
               children: [
                 Icon(icon, color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textSecondary)),
                 const SizedBox(width: 16),
-                Text(label,
-                    style: TextStyle(
-                      color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textPrimary),
-                      fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                    )),
+                Expanded(
+                  child: Text(label,
+                      style: TextStyle(
+                        color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textPrimary),
+                        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                      )),
+                ),
+                if (badgeCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badgeCount > 9 ? '9+' : badgeCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -293,6 +423,7 @@ class _ReviewerDrawer extends StatelessWidget {
   }
 }
 
+// _ProfileDialog class remains exactly the same as in your original code
 class _ProfileDialog extends StatelessWidget {
   final Map<String, dynamic>? profileData;
   const _ProfileDialog({Key? key, this.profileData}) : super(key: key);

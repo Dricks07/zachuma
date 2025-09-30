@@ -652,10 +652,14 @@ class _AddContentState extends State<AddContent> {
 
       if (widget.topicId == null) {
         final id = await repo.createTopic(data);
+
+        // CREATE NOTIFICATION FOR REVIEWERS WHEN NEW TOPIC IS SUBMITTED
+        await _createReviewerNotification(id, titleCtrl.text.trim());
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Topic created successfully"),
+              content: Text("Topic created successfully and sent for review"),
               backgroundColor: AppColors.success,
             ),
           );
@@ -663,6 +667,12 @@ class _AddContentState extends State<AddContent> {
         }
       } else {
         await repo.updateTopic(widget.topicId!, data);
+
+        // CREATE NOTIFICATION FOR REVIEWERS WHEN TOPIC IS UPDATED AND PENDING
+        if (data['status'] == 'pending') {
+          await _createReviewerNotification(widget.topicId!, titleCtrl.text.trim());
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -688,6 +698,40 @@ class _AddContentState extends State<AddContent> {
       }
     } finally {
       if (mounted) setState(() => saving = false);
+    }
+  }
+
+// ADD THIS METHOD TO CREATE NOTIFICATIONS FOR REVIEWERS
+  Future<void> _createReviewerNotification(String topicId, String topicTitle) async {
+    try {
+      // Get all users with reviewer role
+      final reviewersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'reviewer')
+          .get();
+
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final authorName = currentUser?.displayName ?? currentUser?.email ?? 'Unknown Creator';
+
+      // Create notification for each reviewer
+      for (final reviewerDoc in reviewersSnapshot.docs) {
+        final reviewerId = reviewerDoc.id;
+
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'userId': reviewerId,
+          'title': 'New Topic for Review',
+          'message': '$authorName submitted "$topicTitle" for review',
+          'type': 'new',
+          'topicId': topicId,
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': currentUser?.uid,
+        });
+      }
+
+      print('Created notifications for ${reviewersSnapshot.docs.length} reviewers');
+    } catch (e) {
+      print('Error creating reviewer notifications: $e');
     }
   }
 }

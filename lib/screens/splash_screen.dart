@@ -39,7 +39,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _redirectUserBasedOnRole(String role, String userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final quizDone = prefs.getBool('quizDone') ?? false;
 
     switch (role) {
       case 'admin':

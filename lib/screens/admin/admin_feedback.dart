@@ -12,23 +12,23 @@ class AdminFeedback extends StatelessWidget {
     return AdminShell(
       title: "Feedback",
       currentIndex: 5,
-      child: Padding(
-        padding: const EdgeInsets.all(0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("User Feedback", style: AppTextStyles.heading.copyWith(fontSize: 24)),
-            const SizedBox(height: 20),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("User Feedback", style: AppTextStyles.heading.copyWith(fontSize: 24)),
+              const SizedBox(height: 20),
 
-            // Feedback Statistics
-            _buildStatistics(),
-            const SizedBox(height: 20),
+              // Feedback Statistics - Updated to 2x2 grid from second code
+              _buildStatistics(),
+              const SizedBox(height: 10),
 
-            // Feedback List
-            Expanded(
-              child: _buildFeedbackList(),
-            ),
-          ],
+              // Feedback List - Maintained from first code
+              _buildFeedbackList(),
+            ],
+          ),
         ),
       ),
     );
@@ -41,7 +41,7 @@ class AdminFeedback extends StatelessWidget {
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox();
+          return _buildStatsLoading();
         }
 
         final feedbacks = snapshot.data!.docs;
@@ -49,34 +49,58 @@ class AdminFeedback extends StatelessWidget {
         final suggestions = feedbacks.where((doc) => doc['type'] == 'Suggestion').length;
         final pending = feedbacks.where((doc) => doc['status'] != 'resolved').length;
 
-        return Row(
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 5,
+          mainAxisSpacing: 5,
+          childAspectRatio: 1.5, // Narrow aspect ratio for 2x2 grid
           children: [
             _StatCard(
               title: "Total Feedback",
               count: feedbacks.length,
               color: AppColors.primary,
+              icon: Icons.feedback_outlined,
             ),
-            const SizedBox(width: 12),
             _StatCard(
               title: "Bug Reports",
               count: bugReports,
               color: AppColors.error,
+              icon: Icons.bug_report_outlined,
             ),
-            const SizedBox(width: 12),
             _StatCard(
               title: "Suggestions",
               count: suggestions,
               color: AppColors.success,
+              icon: Icons.lightbulb_outline,
             ),
-            const SizedBox(width: 12),
             _StatCard(
               title: "Pending",
               count: pending,
               color: AppColors.warning,
+              icon: Icons.pending_actions_outlined,
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildStatsLoading() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.2,
+      children: [
+        _StatCard.loading(color: AppColors.primary),
+        _StatCard.loading(color: AppColors.error),
+        _StatCard.loading(color: AppColors.success),
+        _StatCard.loading(color: AppColors.warning),
+      ],
     );
   }
 
@@ -106,6 +130,8 @@ class AdminFeedback extends StatelessWidget {
         final feedbacks = snapshot.data!.docs;
 
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: feedbacks.length,
           itemBuilder: (context, index) {
             final feedback = feedbacks[index];
@@ -126,39 +152,105 @@ class _StatCard extends StatelessWidget {
   final String title;
   final int count;
   final Color color;
+  final IconData? icon;
+  final bool isLoading;
 
   const _StatCard({
     required this.title,
     required this.count,
     required this.color,
+    this.icon,
+    this.isLoading = false,
   });
+
+  factory _StatCard.loading({required Color color}) {
+    return _StatCard(
+      title: "Loading...",
+      count: 0,
+      color: color,
+      isLoading: true,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        color: color.withOpacity(0.1),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                count.toString(),
-                style: AppTextStyles.heading.copyWith(
-                  fontSize: 28,
-                  color: color,
+    return Card(
+      color: color.withOpacity(0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon and count row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (icon != null)
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: AppColors.accent, size: 18),
+                  ),
+                if (isLoading)
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: isLoading
+                        ? Container(
+                      width: 20,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: AppColors.textPrimary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    )
+                        : Text(
+                      count.toString(),
+                      style: AppTextStyles.heading.copyWith(
+                        fontSize: 24,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Title
+            isLoading
+                ? Container(
+              width: double.infinity,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: AppTextStyles.regular.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            )
+                : Text(
+              title,
+              style: AppTextStyles.midFont.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 14,
               ),
-            ],
-          ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
@@ -190,10 +282,10 @@ class _FeedbackCard extends StatelessWidget {
 
     return Card(
       color: AppColors.surface,
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -227,13 +319,14 @@ class _FeedbackCard extends StatelessWidget {
                         style: AppTextStyles.notificationText.copyWith(
                           color: AppColors.surface,
                           fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       backgroundColor: type == 'Bug Report' ? AppColors.error : AppColors.primary,
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                       decoration: BoxDecoration(
                         color: _getStatusColor(status),
                         borderRadius: BorderRadius.circular(12),
