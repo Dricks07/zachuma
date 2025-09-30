@@ -1,6 +1,7 @@
 // screens/admin/admin_dash.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants.dart';
 import '../../services/admin_repository.dart';
 import 'admin_shell.dart';
@@ -14,13 +15,17 @@ class AdminDash extends StatefulWidget {
 
 class _AdminDashState extends State<AdminDash> {
   final repo = AdminRepository();
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+
   int users = 0, topics = 0, alerts = 0;
   bool loading = true;
+  int unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
     _loadCounts();
+    _loadUnreadNotifications();
   }
 
   Future<void> _loadCounts() async {
@@ -28,7 +33,6 @@ class _AdminDashState extends State<AdminDash> {
       final u = await repo.countCollection(repo.usersCol);
       final c = await repo.countCollection(repo.topicsCol);
       final a = await repo.countCollection(repo.alertsCol);
-
 
       setState(() {
         users = u;
@@ -41,6 +45,21 @@ class _AdminDashState extends State<AdminDash> {
     }
   }
 
+  void _loadUnreadNotifications() {
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUser?.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          unreadNotifications = snapshot.docs.length;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
@@ -49,9 +68,11 @@ class _AdminDashState extends State<AdminDash> {
     return AdminShell(
       title: "Admin Dashboard",
       currentIndex: 0,
+      unreadNotifications: unreadNotifications, // Pass to shell for badge
       child: loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -68,7 +89,7 @@ class _AdminDashState extends State<AdminDash> {
             // Quick Actions for Admin
             Text("Quick Actions", style: AppTextStyles.subHeading),
             const SizedBox(height: 14),
-            _buildAdminQuickActions(),
+            _buildAdminQuickActions(isMobile: isMobile),
 
             const SizedBox(height: 30),
 
@@ -81,52 +102,82 @@ class _AdminDashState extends State<AdminDash> {
     );
   }
 
-  Widget _buildAdminQuickActions() {
-    return GridView(
+  Widget _buildAdminQuickActions({required bool isMobile}) {
+    final actions = [
+      _QuickActionData(
+        title: "Manage Users",
+        icon: Icons.people,
+        color: AppColors.primary,
+        route: '/admin/users',
+      ),
+      _QuickActionData(
+        title: "Content Management",
+        icon: Icons.article,
+        color: AppColors.success,
+        route: '/admin/topics',
+      ),
+      _QuickActionData(
+        title: "View Analytics",
+        icon: Icons.analytics,
+        color: AppColors.accent,
+        route: '/admin/analytics',
+      ),
+      _QuickActionData(
+        title: "System Feedback",
+        icon: Icons.feedback,
+        color: AppColors.warning,
+        route: '/admin/feedback',
+      ),
+    ];
+
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 2.5,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isMobile ? 2 : 4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: isMobile ? 1.2 : 1.0,
       ),
-      children: [
-        _buildQuickAction(
-          "Manage Users",
-          Icons.people,
-          AppColors.primary,
-              () => Navigator.pushNamed(context, '/admin/users'),
-        ),
-        _buildQuickAction(
-          "View Analytics",
-          Icons.analytics,
-          AppColors.success,
-              () => Navigator.pushNamed(context, '/admin/analytics'),
-        ),
-      ],
+      itemCount: actions.length,
+      itemBuilder: (context, index) {
+        final action = actions[index];
+        return _buildQuickActionCard(action);
+      },
     );
   }
 
-  Widget _buildQuickAction(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildQuickActionCard(_QuickActionData action) {
     return Card(
       elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: onTap,
+        onTap: () => Navigator.pushNamed(context, action.route),
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: action.color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(action.icon, color: action.color, size: 24),
+              ),
+              const SizedBox(height: 12),
               Text(
-                title,
-                style: AppTextStyles.midFont.copyWith(fontSize: 14),
+                action.title,
+                style: AppTextStyles.midFont.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
                 maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -136,64 +187,280 @@ class _AdminDashState extends State<AdminDash> {
   }
 
   Widget _buildRecentAlerts() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUser?.uid)
+          .orderBy('timestamp', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildAlertsLoading();
+        }
+
+        if (snapshot.hasError) {
+          return _buildAlertsError(snapshot.error.toString());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildNoAlerts();
+        }
+
+        final alerts = snapshot.data!.docs;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header with view all button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Recent Notifications",
+                    style: AppTextStyles.subHeading.copyWith(fontSize: 18),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/admin/alerts'),
+                    child: Text(
+                      "View All",
+                      style: AppTextStyles.regular.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Alerts list
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: alerts.length,
+                separatorBuilder: (_, __) => const Divider(height: 16, color: AppColors.background),
+                itemBuilder: (_, index) {
+                  final alert = alerts[index];
+                  final data = alert.data() as Map<String, dynamic>;
+                  return _buildAlertListItem(alert.id, data);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAlertListItem(String alertId, Map<String, dynamic> data) {
+    final isRead = data['isRead'] ?? false;
+    final type = data['type'] ?? 'general';
+    final title = data['title'] ?? 'Notification';
+    final message = data['message'] ?? '';
+    final timestamp = data['timestamp'] != null
+        ? _formatTimeAgo((data['timestamp'] as Timestamp).toDate())
+        : 'Recently';
+
+    Color dotColor;
+    switch (type) {
+      case 'feedback':
+        dotColor = AppColors.accent;
+        break;
+      case 'user':
+        dotColor = AppColors.success;
+        break;
+      case 'system':
+        dotColor = AppColors.warning;
+        break;
+      default:
+        dotColor = AppColors.primary;
+    }
+
+    return GestureDetector(
+      onTap: () => _handleAlertTap(alertId, data, context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status indicator
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(top: 8, right: 12),
+            decoration: BoxDecoration(
+              color: isRead ? AppColors.textSecondary : dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppTextStyles.midFont.copyWith(
+                          fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                          color: isRead ? AppColors.textPrimary : dotColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      timestamp,
+                      style: AppTextStyles.notificationText.copyWith(fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: AppTextStyles.regular.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      constraints: const BoxConstraints(minHeight: 200),
-      child: StreamBuilder<QuerySnapshot>(
-        stream: repo.streamAlerts(),
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-          }
-          final docs = snap.data!.docs.take(5).toList();
-          if (docs.isEmpty) {
-            return Center(
-              child: Text("No alerts yet.", style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary)),
-            );
-          }
-          return ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const Divider(color: AppColors.background),
-            itemBuilder: (_, i) {
-              final d = docs[i].data() as Map<String, dynamic>;
-              return ListTile(
-                leading: const Icon(Icons.notifications, color: AppColors.secondary),
-                title: Text(d['title'] ?? 'Alert', style: AppTextStyles.midFont),
-                subtitle: Text(d['message'] ?? '', style: AppTextStyles.notificationText),
-                trailing: Text(
-                  _formatTimeAgo(d['createdAt']),
-                  style: AppTextStyles.notificationText,
-                ),
-              );
-            },
-          );
-        },
       ),
     );
   }
 
-  String _formatTimeAgo(dynamic timestamp) {
-    if (timestamp == null) return '';
-    final time = timestamp is Timestamp ? timestamp.toDate() : DateTime.now();
-    final now = DateTime.now();
-    final difference = now.difference(time);
+  Widget _buildAlertsLoading() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+  }
 
+  Widget _buildAlertsError(String error) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.error_outline, size: 48, color: AppColors.error),
+          const SizedBox(height: 12),
+          Text(
+            'Failed to load alerts',
+            style: AppTextStyles.midFont,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoAlerts() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.notifications_off, size: 48, color: AppColors.textSecondary),
+          const SizedBox(height: 12),
+          Text(
+            'No notifications',
+            style: AppTextStyles.midFont,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You\'re all caught up!',
+            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleAlertTap(String alertId, Map<String, dynamic> data, BuildContext context) async {
+    // Mark as read if unread
+    if (!(data['isRead'] ?? false)) {
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(alertId)
+          .update({'isRead': true});
+    }
+
+    // Navigate based on type
+    final type = data['type'];
+    switch (type) {
+      case 'feedback':
+        Navigator.pushNamed(context, '/admin/feedback');
+        break;
+      case 'user':
+        Navigator.pushNamed(context, '/admin/users');
+        break;
+      case 'system':
+      // Show system alert details
+        _showAlertDetails(data, context);
+        break;
+      default:
+        Navigator.pushNamed(context, '/admin/alerts');
+        break;
+    }
+  }
+
+  void _showAlertDetails(Map<String, dynamic> data, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(data['title'] ?? 'Alert Details'),
+        content: Text(data['message'] ?? 'No additional details available.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close', style: AppTextStyles.regular),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inMinutes < 1) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
     if (difference.inHours < 24) return '${difference.inHours}h ago';
-    return '${difference.inDays}d ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${difference.inDays ~/ 7}w ago';
   }
 
   Widget _buildOverviewCard({
@@ -214,15 +481,26 @@ class _AdminDashState extends State<AdminDash> {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              Icon(icon, size: 30, color: iconColor),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 24, color: iconColor),
+              ),
               const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(title, style: AppTextStyles.midFont.copyWith(color: AppColors.textSecondary)),
-                  Text(value, style: AppTextStyles.heading.copyWith(fontSize: 24, color: AppColors.primary)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(title, style: AppTextStyles.midFont.copyWith(color: AppColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(value, style: AppTextStyles.heading.copyWith(fontSize: 24, color: AppColors.primary)),
+                  ],
+                ),
               ),
             ],
           ),
@@ -258,7 +536,6 @@ class _AdminDashState extends State<AdminDash> {
         const SizedBox(height: 16),
         Row(
           children: [
-            const SizedBox(width: 16),
             Expanded(
               child: _buildOverviewCard(
                 icon: Icons.notifications,
@@ -266,6 +543,16 @@ class _AdminDashState extends State<AdminDash> {
                 value: "$alerts",
                 onTap: () => Navigator.pushNamed(context, '/admin/alerts'),
                 iconColor: AppColors.error,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildOverviewCard(
+                icon: Icons.feedback,
+                title: "Unread Notifications",
+                value: "$unreadNotifications",
+                onTap: () => Navigator.pushNamed(context, '/admin/alerts'),
+                iconColor: AppColors.warning,
               ),
             ),
           ],
@@ -298,7 +585,29 @@ class _AdminDashState extends State<AdminDash> {
           onTap: () => Navigator.pushNamed(context, '/admin/alerts'),
           iconColor: AppColors.error,
         ),
+        const SizedBox(height: 16),
+        _buildOverviewCard(
+          icon: Icons.feedback,
+          title: "Unread Notifications",
+          value: "$unreadNotifications",
+          onTap: () => Navigator.pushNamed(context, '/admin/alerts'),
+          iconColor: AppColors.warning,
+        ),
       ],
     );
   }
+}
+
+class _QuickActionData {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String route;
+
+  _QuickActionData({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.route,
+  });
 }

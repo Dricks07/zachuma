@@ -50,7 +50,7 @@ class AppTextStyles {
     fontWeight: FontWeight.w500,
     fontSize: 13,
     letterSpacing: -0.08,
-    height: 18 / 13, // matches your line height ratio
+    height: 18 / 13,
     color: AppColors.textSecondary,
   );
 }

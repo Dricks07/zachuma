@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 class AdminRepository {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -285,5 +286,64 @@ class AdminRepository {
         .where('published', isEqualTo: true)
         .where('status', isEqualTo: 'published')
         .get();
+  }
+
+
+  Future<List<Map<String, dynamic>>> getUserActivityReport(DateTimeRange dateRange) async {
+    final snapshot = await usersCol
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start))
+        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(dateRange.end))
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'UserID': doc.id,
+        'Name': data['name'] ?? 'N/A',
+        'Email': data['email'] ?? 'N/A',
+        'Role': data['role'] ?? 'user',
+        'Registered On': data['createdAt'],
+      };
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getContentStatusReport(DateTimeRange dateRange) async {
+    final snapshot = await topicsCol
+        .where('updatedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start))
+        .where('updatedAt', isLessThanOrEqualTo: Timestamp.fromDate(dateRange.end))
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'TopicID': doc.id,
+        'Title': data['title'] ?? 'N/A',
+        'Author': data['authorName'] ?? 'N/A',
+        'Status': data['status'] ?? 'draft',
+        'Category': data['category'] ?? 'N/A',
+        'Level': data['level'] ?? 'N/A',
+        'Last Updated': data['updatedAt'],
+      };
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getSystemLogsReport(DateTimeRange dateRange) async {
+    final snapshot = await alertsCol
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start))
+        .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(dateRange.end))
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'Timestamp': data['createdAt'],
+        'Type': data['type'] ?? 'LOG',
+        'Title': data['title'] ?? 'System Log',
+        'Message': data['message'] ?? 'No details',
+      };
+    }).toList();
   }
 }

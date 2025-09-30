@@ -27,6 +27,8 @@ import 'package:za_chuma/screens/user/topics_screen.dart';
 import 'package:za_chuma/screens/user/learning_screen.dart';
 import 'package:za_chuma/screens/user/notifications_screen.dart';
 import 'package:za_chuma/screens/user/settings_screen.dart';
+import 'package:za_chuma/screens/user/user_feedback.dart';
+import 'package:za_chuma/screens/user/user__help.dart';
 
 import 'package:za_chuma/screens/creator/creator_dash.dart';
 import 'package:za_chuma/screens/creator/creator_alerts.dart';
@@ -46,7 +48,7 @@ import 'package:za_chuma/screens/reviewer/reviewer_topic_review.dart';
 import 'package:za_chuma/services/database_helper.dart';
 import 'package:za_chuma/services/sync_service.dart';
 
-/// Add a global navigator key so we can navigate safely from async logout
+// Global navigator key so we can navigate safely from async logout
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -78,7 +80,11 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey, // <-- important for logout
       theme: ThemeData(
-        primaryColor: AppColors.primary,
+        colorScheme: ColorScheme.light(
+          primary: AppColors.primary,
+          background: AppColors.background,
+          // Add other colors if needed
+        ),
         scaffoldBackgroundColor: AppColors.background,
         textTheme: const TextTheme(
           headlineLarge: AppTextStyles.heading,
@@ -89,6 +95,7 @@ class MyApp extends StatelessWidget {
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white, // Text color
             textStyle: AppTextStyles.midFont.copyWith(color: Colors.white),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -101,12 +108,14 @@ class MyApp extends StatelessWidget {
             borderSide: const BorderSide(color: AppColors.textSecondary, width: 2),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(15),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
           labelStyle: AppTextStyles.midFont.copyWith(color: AppColors.textSecondary),
         ),
+        useMaterial3: true, // Optional: enables Material 3 design
       ),
+
       // Start app at SplashScreen always
       home: const SplashScreen(),
       // routes
@@ -155,6 +164,8 @@ class MyApp extends StatelessWidget {
         '/user/notifications': (context) => const NotificationsPage(),
         '/user/settings': (context) => const SettingsScreen(),
         '/user/discover': (context) => const DiscoverScreen(),
+        '/user/feedback': (context) => const UserFeedback(),
+        '/user/help': (context) => const UserHelp(),
       },
     );
   }

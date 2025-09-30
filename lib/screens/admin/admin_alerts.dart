@@ -1,43 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../constants.dart';
 import 'admin_shell.dart';
 
-class AdminAlerts extends StatelessWidget {
+class AdminAlerts extends StatefulWidget {
   const AdminAlerts({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> alerts = [
-      {
-        'title': 'New User Registration',
-        'message': 'Sarah Johnson just registered on the platform',
-        'time': '2 hours ago',
-        'type': 'user',
-        'read': false,
-      },
-      {
-        'title': 'Course Completion',
-        'message': 'Michael Smith completed "Introduction to Finance"',
-        'time': '5 hours ago',
-        'type': 'course',
-        'read': true,
-      },
-      {
-        'title': 'System Update',
-        'message': 'New app version 2.1.0 is available for deployment',
-        'time': '1 day ago',
-        'type': 'system',
-        'read': true,
-      },
-      {
-        'title': 'Feedback Received',
-        'message': 'New feedback received from Emily Gondwe',
-        'time': '2 days ago',
-        'type': 'feedback',
-        'read': true,
-      },
-    ];
+  State<AdminAlerts> createState() => _AdminAlertsState();
+}
 
+class _AdminAlertsState extends State<AdminAlerts> {
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+  String _filterType = 'all'; // 'all', 'unread', 'feedback', 'user', 'system'
+
+  @override
+  Widget build(BuildContext context) {
     return AdminShell(
       title: "Alerts",
       currentIndex: 3,
@@ -46,7 +26,7 @@ class AdminAlerts extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Added clear heading
+            // Header
             Text("Notifications", style: AppTextStyles.heading.copyWith(fontSize: 24)),
             const SizedBox(height: 16),
             Text(
@@ -55,61 +35,83 @@ class AdminAlerts extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Alert stats
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem('Total', '24', AppColors.primary),
-                  _buildStatItem('Unread', '3', AppColors.secondary),
-                  _buildStatItem('Urgent', '1', AppColors.error),
-                ],
-              ),
-            ),
+            // Statistics
+            _buildStatistics(),
             const SizedBox(height: 16),
 
-            // Alerts list header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Recent Alerts",
-                  style: AppTextStyles.subHeading.copyWith(fontSize: 20),
-                ),
-                IconButton(
-                  icon: Icon(Icons.filter_list, color: AppColors.primary),
-                  onPressed: () {
-                    // Filter alerts
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            // Filter and actions
+            _buildFilterBar(),
+            const SizedBox(height: 16),
 
             // Alerts list
             Expanded(
-              child: ListView.builder(
-                itemCount: alerts.length,
-                itemBuilder: (context, index) {
-                  final alert = alerts[index];
-                  return _buildAlertCard(alert);
-                },
-              ),
+              child: _buildNotificationsList(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatistics() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return _buildStatsLoading();
+        }
+
+        final notifications = snapshot.data!.docs;
+        final total = notifications.length;
+        final unread = notifications.where((doc) => !(doc['isRead'] ?? false)).length;
+        final feedbackCount = notifications.where((doc) => doc['type'] == 'feedback').length;
+        final urgent = notifications.where((doc) => doc['priority'] == 'high').length;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatItem('Total', total.toString(), AppColors.primary),
+              _buildStatItem('Unread', unread.toString(), AppColors.secondary),
+              _buildStatItem('Feedback', feedbackCount.toString(), AppColors.accent),
+              _buildStatItem('Urgent', urgent.toString(), AppColors.error),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatsLoading() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem('Total', '...', AppColors.primary),
+          _buildStatItem('Unread', '...', AppColors.secondary),
+          _buildStatItem('Feedback', '...', AppColors.accent),
+          _buildStatItem('Urgent', '...', AppColors.error),
+        ],
       ),
     );
   }
@@ -121,6 +123,7 @@ class AdminAlerts extends StatelessWidget {
           title,
           style: AppTextStyles.regular.copyWith(
             color: AppColors.textSecondary,
+            fontSize: 12,
           ),
         ),
         const SizedBox(height: 4),
@@ -135,100 +138,388 @@ class AdminAlerts extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertCard(Map<String, dynamic> alert) {
+  Widget _buildFilterBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "Recent Alerts",
+          style: AppTextStyles.subHeading.copyWith(fontSize: 20),
+        ),
+        Row(
+          children: [
+            // Mark all as read
+            IconButton(
+              icon: Icon(Icons.mark_email_read, color: AppColors.primary),
+              onPressed: _markAllAsRead,
+              tooltip: 'Mark all as read',
+            ),
+            // Filter dropdown
+            PopupMenuButton<String>(
+              icon: Icon(Icons.filter_list, color: AppColors.primary),
+              onSelected: (value) {
+                setState(() {
+                  _filterType = value;
+                });
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(value: 'all', child: Text('All Notifications')),
+                PopupMenuItem(value: 'unread', child: Text('Unread Only')),
+                PopupMenuItem(value: 'feedback', child: Text('Feedback')),
+                PopupMenuItem(value: 'user', child: Text('User Activity')),
+                PopupMenuItem(value: 'system', child: Text('System')),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationsList() {
+    Query query = FirebaseFirestore.instance
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUser?.uid)
+        .orderBy('timestamp', descending: true);
+
+    // Apply filters
+    if (_filterType == 'unread') {
+      query = query.where('isRead', isEqualTo: false);
+    } else if (_filterType != 'all') {
+      query = query.where('type', isEqualTo: _filterType);
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error loading notifications: ${snapshot.error}'),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        final notifications = snapshot.data!.docs;
+
+        return ListView.builder(
+          itemCount: notifications.length,
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            final data = notification.data() as Map<String, dynamic>;
+
+            return _buildNotificationCard(
+              notification.id,
+              data,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_off, size: 64, color: AppColors.textSecondary),
+          const SizedBox(height: 16),
+          Text(
+            'No notifications',
+            style: AppTextStyles.midFont.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _filterType == 'all'
+                ? 'You\'re all caught up!'
+                : 'No ${_filterType == 'unread' ? 'unread' : _filterType} notifications',
+            style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationCard(String notificationId, Map<String, dynamic> data) {
+    final title = data['title'] ?? 'Notification';
+    final message = data['message'] ?? '';
+    final type = data['type'] ?? 'general';
+    final isRead = data['isRead'] ?? false;
+    final timestamp = data['timestamp'] != null
+        ? DateFormat('MMM dd, yyyy • HH:mm').format(
+        (data['timestamp'] as Timestamp).toDate())
+        : 'Unknown time';
+    final feedbackId = data['feedbackId'];
+    final priority = data['priority'] ?? 'normal';
+
     IconData icon;
     Color color;
+    Color backgroundColor;
 
-    switch (alert['type']) {
+    switch (type) {
+      case 'feedback':
+        icon = Icons.feedback;
+        color = AppColors.accent;
+        backgroundColor = AppColors.accent.withOpacity(0.2);
+        break;
       case 'user':
         icon = Icons.person_add;
         color = AppColors.success;
-        break;
-      case 'course':
-        icon = Icons.library_books;
-        color = AppColors.primary;
+        backgroundColor = AppColors.success.withOpacity(0.2);
         break;
       case 'system':
         icon = Icons.system_update;
         color = AppColors.warning;
+        backgroundColor = AppColors.warning.withOpacity(0.2);
         break;
-      case 'feedback':
-        icon = Icons.feedback;
-        color = AppColors.accent;
+      case 'course':
+        icon = Icons.library_books;
+        color = AppColors.primary;
+        backgroundColor = AppColors.primary.withOpacity(0.2);
         break;
       default:
         icon = Icons.notifications;
         color = AppColors.textSecondary;
+        backgroundColor = AppColors.textSecondary.withOpacity(0.2);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    // High priority notifications get a different border
+    final hasHighPriority = priority == 'high';
+
+    return GestureDetector(
+      onTap: () => _handleNotificationTap(notificationId, data, context),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: hasHighPriority
+              ? Border.all(color: AppColors.error, width: 2)
+              : (!isRead ? Border.all(color: color, width: 1) : null),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 16),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: AppTextStyles.regular.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: !isRead ? color : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (hasHighPriority)
+                        Icon(Icons.priority_high, color: AppColors.error, size: 16),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: AppTextStyles.regular.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timestamp,
+                    style: AppTextStyles.regular.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Status indicator
+            if (!isRead)
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleNotificationTap(String notificationId, Map<String, dynamic> data, BuildContext context) async {
+    // Mark as read
+    if (!(data['isRead'] ?? false)) {
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'isRead': true});
+    }
+
+    // Navigate based on notification type
+    final type = data['type'];
+    final feedbackId = data['feedbackId'];
+
+    switch (type) {
+      case 'feedback':
+        if (feedbackId != null) {
+          // Navigate to feedback page with the specific feedback
+          Navigator.pushNamed(
+            context,
+            '/admin/feedback',
+            // You can pass arguments if your routing supports it
+            // arguments: {'highlightFeedbackId': feedbackId}
+          );
+        } else {
+          // Navigate to general feedback page
+          Navigator.pushNamed(context, '/admin/feedback');
+        }
+        break;
+
+      case 'user':
+      // Navigate to users management
+        Navigator.pushNamed(context, '/admin/users');
+        break;
+
+      case 'course':
+      // Navigate to content management
+        Navigator.pushNamed(context, '/admin/content');
+        break;
+
+      case 'system':
+      // Navigate to system settings or show system alert
+        _showSystemAlertDialog(data, context);
+        break;
+
+      default:
+      // Show notification details
+        _showNotificationDetails(data, context);
+        break;
+    }
+  }
+
+  void _showSystemAlertDialog(Map<String, dynamic> data, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(data['title'] ?? 'System Alert'),
+        content: Text(data['message'] ?? 'No additional details available.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close', style: AppTextStyles.regular),
           ),
         ],
-        border: alert['read'] ? null : Border.all(color: color, width: 1),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    );
+  }
+
+  void _showNotificationDetails(Map<String, dynamic> data, BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(data['title'] ?? 'Notification Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(data['message'] ?? 'No message content.'),
+              const SizedBox(height: 16),
+              if (data['timestamp'] != null)
                 Text(
-                  alert['title'],
-                  style: AppTextStyles.regular.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: alert['read'] ? AppColors.textPrimary : color,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  alert['message'],
-                  style: AppTextStyles.regular.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  alert['time'],
+                  'Received: ${DateFormat('MMM dd, yyyy • HH:mm:ss').format((data['timestamp'] as Timestamp).toDate())}',
                   style: AppTextStyles.regular.copyWith(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-          if (!alert['read'])
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close', style: AppTextStyles.regular),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _markAllAsRead() async {
+    try {
+      final unreadNotifications = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUser?.uid)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in unreadNotifications.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Marked all notifications as read',
+            style: AppTextStyles.regular.copyWith(color: AppColors.surface),
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error marking notifications as read: ${e.toString()}',
+            style: AppTextStyles.regular.copyWith(color: AppColors.surface),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 }

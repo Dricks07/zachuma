@@ -200,6 +200,7 @@ class _UserDrawer extends StatelessWidget {
       {'icon': Icons.explore, 'label': 'Discover', 'route': '/user/discover'},
       {'icon': Icons.notifications, 'label': 'Alerts', 'route': '/user/notifications'},
       {'icon': Icons.settings, 'label': 'Settings', 'route': '/user/settings'},
+      {'icon': Icons.feedback, 'label': 'Submit Feedback', 'route': '/user/feedback'},
       {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/user/help'},
       {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'isLogout': true},
     ];
@@ -281,8 +282,10 @@ class _UserDrawer extends StatelessWidget {
           if (Scaffold.of(context).isDrawerOpen) Navigator.pop(context);
           if (isLogout) {
             _ProfileDialog.showConfirmLogout();
-          } else if (idx != currentIndex) {
+          } else if (idx != currentIndex && idx <= 3) {
             Navigator.pushReplacementNamed(context, route);
+          } else {
+            Navigator.pushNamed(context, route);
           }
         },
         child: Container(

@@ -11,6 +11,7 @@ class AdminShell extends StatefulWidget {
   final Widget child;
   final int currentIndex;
   final List<Widget>? actions;
+  final int unreadNotifications;
 
   const AdminShell({
     super.key,
@@ -18,6 +19,7 @@ class AdminShell extends StatefulWidget {
     required this.child,
     required this.currentIndex,
     this.actions,
+    this.unreadNotifications = 0,
   });
 
   @override
@@ -29,11 +31,13 @@ class _AdminShellState extends State<AdminShell> {
   Map<String, dynamic>? profileData;
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<DocumentSnapshot>? _profileSubscription;
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
     currentUser = FirebaseAuth.instance.currentUser;
+    _unreadNotifications = widget.unreadNotifications;
 
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (!mounted) return;
@@ -48,13 +52,13 @@ class _AdminShellState extends State<AdminShell> {
 
     if (currentUser != null) {
       _loadProfileData();
+      _setupNotificationListener();
     }
   }
 
   Future<void> _loadProfileData() async {
     if (currentUser != null) {
       try {
-        // Set up real-time listener for profile data
         _profileSubscription = FirebaseFirestore.instance
             .collection('users')
             .doc(currentUser!.uid)
@@ -68,6 +72,21 @@ class _AdminShellState extends State<AdminShell> {
         debugPrint("Failed to load profile data: $e");
       }
     }
+  }
+
+  void _setupNotificationListener() {
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUser?.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _unreadNotifications = snapshot.docs.length;
+        });
+      }
+    });
   }
 
   @override
@@ -120,10 +139,18 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ],
       ),
-      drawer: isWide ? null : _AdminDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+      drawer: isWide ? null : _AdminDrawer(
+        currentIndex: widget.currentIndex,
+        profileData: profileData,
+        unreadNotifications: _unreadNotifications,
+      ),
       body: Row(
         children: [
-          if (isWide) _AdminDrawer(currentIndex: widget.currentIndex, profileData: profileData),
+          if (isWide) _AdminDrawer(
+            currentIndex: widget.currentIndex,
+            profileData: profileData,
+            unreadNotifications: _unreadNotifications,
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -145,10 +172,30 @@ class _AdminShellState extends State<AdminShell> {
 
   BottomNavigationBar _buildBottomNav(BuildContext context) {
     final navItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/admin/dashboard'},
-      {'icon': Icons.article_outlined, 'label': 'Topics', 'route': '/admin/topics'},
-      {'icon': Icons.people_outlined, 'label': 'Users', 'route': '/admin/users'},
-      {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/admin/alerts'},
+      {
+        'icon': Icons.dashboard_outlined,
+        'label': 'Dashboard',
+        'route': '/admin/dashboard',
+        'badgeCount': 0,
+      },
+      {
+        'icon': Icons.article_outlined,
+        'label': 'Topics',
+        'route': '/admin/topics',
+        'badgeCount': 0,
+      },
+      {
+        'icon': Icons.people_outlined,
+        'label': 'Users',
+        'route': '/admin/users',
+        'badgeCount': 0,
+      },
+      {
+        'icon': Icons.notifications_outlined,
+        'label': 'Alerts',
+        'route': '/admin/alerts',
+        'badgeCount': _unreadNotifications,
+      },
     ];
 
     return BottomNavigationBar(
@@ -162,11 +209,47 @@ class _AdminShellState extends State<AdminShell> {
         }
       },
       items: navItems.map((item) {
+        final badgeCount = item['badgeCount'] as int;
         return BottomNavigationBarItem(
-          icon: Icon(item['icon'] as IconData),
+          icon: _buildNavIcon(item['icon'] as IconData, badgeCount),
           label: item['label'] as String,
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildNavIcon(IconData icon, int badgeCount) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, size: 24),
+        if (badgeCount > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.surface, width: 1.5),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                badgeCount > 9 ? '9+' : badgeCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -174,22 +257,27 @@ class _AdminShellState extends State<AdminShell> {
 class _AdminDrawer extends StatelessWidget {
   final int currentIndex;
   final Map<String, dynamic>? profileData;
+  final int unreadNotifications;
 
-  const _AdminDrawer({required this.currentIndex, this.profileData});
+  const _AdminDrawer({
+    required this.currentIndex,
+    this.profileData,
+    required this.unreadNotifications,
+  });
 
   @override
   Widget build(BuildContext context) {
     final drawerItems = [
-      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/admin/dashboard', 'index': 0},
-      {'icon': Icons.article_outlined, 'label': 'Topics', 'route': '/admin/topics', 'index': 1},
-      {'icon': Icons.people_outlined, 'label': 'Users', 'route': '/admin/users', 'index': 2},
-      {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/admin/alerts', 'index': 3},
-      {'icon': Icons.analytics_outlined, 'label': 'Analytics', 'route': '/admin/analytics', 'index': 4},
-      {'icon': Icons.feedback_outlined, 'label': 'Feedback', 'route': '/admin/feedback', 'index': 5},
-      {'icon': Icons.report_outlined, 'label': 'Reports', 'route': '/admin/reports', 'index': 6},
-      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/admin/settings', 'index': 7},
-      {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/admin/help', 'index': 8},
-      {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'index': 9, 'isLogout': true},
+      {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'route': '/admin/dashboard', 'index': 0, 'badgeCount': 0},
+      {'icon': Icons.article_outlined, 'label': 'Topics', 'route': '/admin/topics', 'index': 1, 'badgeCount': 0},
+      {'icon': Icons.people_outlined, 'label': 'Users', 'route': '/admin/users', 'index': 2, 'badgeCount': 0},
+      {'icon': Icons.notifications_outlined, 'label': 'Alerts', 'route': '/admin/alerts', 'index': 3, 'badgeCount': unreadNotifications},
+      {'icon': Icons.analytics_outlined, 'label': 'Analytics', 'route': '/admin/analytics', 'index': 4, 'badgeCount': 0},
+      {'icon': Icons.feedback_outlined, 'label': 'Feedback', 'route': '/admin/feedback', 'index': 5, 'badgeCount': 0},
+      {'icon': Icons.report_outlined, 'label': 'Reports', 'route': '/admin/reports', 'index': 6, 'badgeCount': 0},
+      {'icon': Icons.settings_outlined, 'label': 'Settings', 'route': '/admin/settings', 'index': 7, 'badgeCount': 0},
+      {'icon': Icons.help_outline, 'label': 'Help Center', 'route': '/admin/help', 'index': 8, 'badgeCount': 0},
+      {'icon': Icons.exit_to_app, 'label': 'Logout', 'route': '/signin', 'index': 9, 'isLogout': true, 'badgeCount': 0},
     ];
 
     return Container(
@@ -253,21 +341,38 @@ class _AdminDrawer extends StatelessWidget {
             final label = item['label'] as String;
             final route = item['route'] as String;
             final index = item['index'] as int;
-            return _drawerItem(context, index, icon, label, route, isLogout: isLogout);
+            final badgeCount = item['badgeCount'] as int;
+            return _drawerItem(
+              context,
+              index,
+              icon,
+              label,
+              route,
+              badgeCount,
+              isLogout: isLogout,
+            );
           }),
         ],
       ),
     );
   }
 
-  Widget _drawerItem(BuildContext context, int idx, IconData icon, String label, String route, {bool isLogout = false}) {
+  Widget _drawerItem(
+      BuildContext context,
+      int idx,
+      IconData icon,
+      String label,
+      String route,
+      int badgeCount, {
+        bool isLogout = false,
+      }) {
     final selected = currentIndex == idx;
     final bool isWide = MediaQuery.of(context).size.width >= 1000;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
-        color: selected ? AppColors.secondary.withOpacity(0.1) : Colors.transparent,
+        color: selected ? AppColors.secondary.withOpacity(0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -276,20 +381,72 @@ class _AdminDrawer extends StatelessWidget {
             if (isLogout) {
               _ProfileDialog.showConfirmLogout();
             } else if (idx != currentIndex) {
-              Navigator.pushReplacementNamed(context, route);
+              Navigator.pushNamed(context, route);
             }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textSecondary)),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                        icon,
+                        color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textSecondary)
+                    ),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.surface, width: 1.5),
+                          ),
+                          child: Center(
+                            child: Text(
+                              badgeCount > 9 ? '9+' : badgeCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(width: 16),
-                Text(label,
+                Expanded(
+                  child: Text(
+                    label,
                     style: TextStyle(
                       color: isLogout ? AppColors.error : (selected ? AppColors.secondary : AppColors.textPrimary),
                       fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                    )),
+                    ),
+                  ),
+                ),
+                if (badgeCount > 0 && !isLogout)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      badgeCount > 9 ? '9+' : badgeCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -386,6 +543,7 @@ class _ProfileDialog extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: AppColors.surface,
         title: const Text("Logout"),
         content: const Text("Are you sure you want to logout?"),
