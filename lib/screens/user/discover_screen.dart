@@ -285,16 +285,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return shuffled.take(3).toList();
   }
 
-  // Get topics by completion status (for progress tracking)
-  List<Map<String, dynamic>> get _continueLearning {
-    // For demo, return random topics with progress
-    if (_topics.isEmpty) return [];
-    final shuffled = List<Map<String, dynamic>>.from(_topics)..shuffle();
-    return shuffled.take(2).map((topic) => {
-      ...topic,
-      'progress': Random().nextDouble() * 100, // Random progress for demo
-    }).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -315,12 +305,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               _buildWelcomeSection(),
               const SizedBox(height: 24),
 
-              if (_continueLearning.isNotEmpty) ...[
-                _buildSectionTitle('Continue Learning'),
-                const SizedBox(height: 12),
-                _buildContinueLearning(),
-                const SizedBox(height: 24),
-              ],
+
 
               _buildSectionTitle('Browse Categories'),
               const SizedBox(height: 12),
@@ -619,14 +604,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Column(
       children: _newTopics.map((topic) {
         return _buildTopicListTile(topic);
-      }).toList(),
-    );
-  }
-
-  Widget _buildContinueLearning() {
-    return Column(
-      children: _continueLearning.map((topic) {
-        return _buildProgressCard(topic);
       }).toList(),
     );
   }

@@ -25,7 +25,7 @@ class _LearningScreenState extends State<LearningScreen> {
   List<Map<String, dynamic>> _contentSections = [];
   List<Map<String, dynamic>> _quizQuestions = [];
   bool _isLoading = true;
-  double _readingProgress = 0.0;
+  bool _hasContent = false;
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final SyncService _syncService = SyncService();
   String? _actualTopicId;
@@ -36,7 +36,6 @@ class _LearningScreenState extends State<LearningScreen> {
   void initState() {
     super.initState();
     _extractRouteArguments();
-    _loadContent();
   }
 
   @override
@@ -54,20 +53,31 @@ class _LearningScreenState extends State<LearningScreen> {
 
         if (_actualTopicId != null && _actualTopicId!.isNotEmpty) {
           _loadContent();
+        } else {
+          _loadContent(); // Load with widget topicId if route args are invalid
         }
       } else {
         _actualTopicId = widget.topicId;
         _actualTopicTitle = widget.topicTitle;
+        _loadContent();
       }
     });
   }
 
   Future<void> _loadContent() async {
     try {
+      setState(() {
+        _isLoading = true;
+        _hasContent = false;
+      });
+
       final topicIdToUse = _actualTopicId ?? widget.topicId;
 
       if (topicIdToUse.isEmpty) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _hasContent = false;
+        });
         return;
       }
 
@@ -129,18 +139,28 @@ class _LearningScreenState extends State<LearningScreen> {
             }).toList();
 
             _quizQuestions = quizQuestions;
-            _isLoading = false;
+            _hasContent = true;
           });
 
           _restoreScrollPosition();
         } else {
-          setState(() => _isLoading = false);
+          setState(() {
+            _hasContent = false;
+          });
         }
       } else {
-        setState(() => _isLoading = false);
+        setState(() {
+          _hasContent = false;
+        });
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _hasContent = false;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -200,14 +220,24 @@ class _LearningScreenState extends State<LearningScreen> {
       return Scaffold(
         backgroundColor: AppColors.surface,
         body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading content...',
+                style: AppTextStyles.regular.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    if (_contentSections.isEmpty) {
+    if (!_hasContent) {
       return Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
