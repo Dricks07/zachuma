@@ -299,7 +299,6 @@ class AdminRepository {
     return snapshot.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
       return {
-        'UserID': doc.id,
         'Name': data['name'] ?? 'N/A',
         'Email': data['email'] ?? 'N/A',
         'Role': data['role'] ?? 'user',
@@ -318,7 +317,6 @@ class AdminRepository {
     return snapshot.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
       return {
-        'TopicID': doc.id,
         'Title': data['title'] ?? 'N/A',
         'Author': data['authorName'] ?? 'N/A',
         'Status': data['status'] ?? 'draft',

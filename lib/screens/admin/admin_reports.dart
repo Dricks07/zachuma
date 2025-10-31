@@ -59,11 +59,11 @@ class _AdminReportsState extends State<AdminReports> {
 
       switch (_selectedReportType) {
         case 'User Activity':
-          headers = ['UserID', 'Name', 'Email', 'Role', 'Registered On'];
+          headers = ['Name', 'Email', 'Role', 'Registered On'];
           data = await _repo.getUserActivityReport(_selectedDateRange!);
           break;
         case 'Content Status':
-          headers = ['TopicID', 'Title', 'Author', 'Status', 'Category', 'Level', 'Last Updated'];
+          headers = ['Title', 'Author', 'Status', 'Category', 'Level', 'Last Updated'];
           data = await _repo.getContentStatusReport(_selectedDateRange!);
           break;
         case 'System Logs':

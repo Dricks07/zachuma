@@ -299,7 +299,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 // Already have an account
                 Center(
                   child: TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pushNamed(context, '/signin'),
                     child: RichText(
                       text: TextSpan(
                         text: 'Already have an account? ',
